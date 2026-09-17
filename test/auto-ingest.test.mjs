@@ -60,17 +60,34 @@ function setup({ auto = true, mode = 'ok', summaries = {} } = {}) {
   //   起因：真机上 `anima_query` 读 `ctx.agent` 直接抛（未 inject），而宽松的假 ctx 把它盖住了。
   //   用 getter 而不是 Proxy：这里只需要 `agent` 这一个已知会抛的成员。
   get agent() { throw new Error('cannot get property "agent" without inject') },  }
-  apply(ctx, {
+  const config = {
     enabled: true,
     engineModule: stubPath,
     data: { vectorRoot: join(dir, 'v'), sessionRoot: join(dir, 's'), bm25Root: join(dir, 'b') },
     embed: { key: 'k', url: 'http://127.0.0.1:1/v1', model: 'stub' },
     chatCollections: ['dsh-memory'],
-    ingest: { enabled: true, collectionId: 'dsh-memory', auto, indexPrefix: 'sum' },
+    // ★ `ledgerPath` 必须落在临时目录 —— 否则账本会写进**真实的** `~/.dsh/dsh-anima-rag/`（污染生产状态）
+    ingest: { enabled: true, collectionId: 'dsh-memory', auto, indexPrefix: 'sum', ledgerPath: join(dir, 'ingest-ledger.json') },
     summariesDir: sumDir,
     inject: { allowSessions: [], rpOnly: false },   // 让装配钩子过白名单（本测只关心入库）
-  })
-  return { dir, sumDir, handlers, stubPath, cleanup: () => rmSync(dir, { recursive: true, force: true }) }
+  }
+  apply(ctx, config)
+  return { dir, sumDir, handlers, stubPath, config, cleanup: () => rmSync(dir, { recursive: true, force: true }) }
+}
+
+/** 模拟"重启宿主"：**同一份配置**、新的 ctx 再 apply 一次 —— 账本只能靠文件续上（D12）。 */
+function restart(config) {
+  const handlers = new Map()
+  const ctx = {
+    logger: { info() {}, warn() {}, error() {}, log() {} },
+    tools: { register() {} },
+    systemPrompt: { section: () => () => {} },
+    on: (ev, fn) => handlers.set(ev, fn),
+    effect: () => {},
+    get agent() { throw new Error('cannot get property "agent" without inject') },
+  }
+  apply(ctx, config)
+  return handlers
 }
 
 function writeIndex(dir, entries) {
@@ -236,5 +253,31 @@ test('⑦ ingest.auto=false ⇒ 一个字都不写', async () => {
     writeSummary(s.sumDir, 'a.md', '甲')
     await assembleOnce(s.handlers); await settle(400)
     assert.equal((stubCalls(s.dir)).length, 0)
+  } finally { s.cleanup() }
+})
+
+test('⑧ ★ 账本落盘（D12）：重启宿主**不重灌**', async () => {
+  const s = setup({ summaries: [{ file: 'a.md' }, { file: 'b.md' }] })
+  try {
+    writeSummary(s.sumDir, 'a.md', '甲')
+    writeSummary(s.sumDir, 'b.md', '乙')
+    await assembleOnce(s.handlers); await settle()
+    assert.equal(stubCalls(s.dir).length, 2, '首次该写 2 条')
+    assert.ok(existsSync(join(s.dir, 'ingest-ledger.json')), '账本必须落盘')
+    // ★ 重启：新 ctx、**同一份配置**（同一个 summariesDir + 同一个账本路径）
+    await assembleOnce(restart(s.config)); await settle()
+    assert.equal(stubCalls(s.dir).length, 2, '重启后不许重灌（账本续上了）')
+  } finally { s.cleanup() }
+})
+
+test('⑨ ★ 内容变了（sourceHash 变）⇒ 该重入（账本按**内容签名**判重）', async () => {
+  const s = setup({ summaries: [{ file: 'a.md', sourceHash: 'h1' }] })
+  try {
+    writeSummary(s.sumDir, 'a.md', '甲')
+    await assembleOnce(s.handlers); await settle()
+    assert.equal(stubCalls(s.dir).length, 1)
+    writeIndex(s.sumDir, [{ file: 'a.md', sourceHash: 'h2' }])   // 同文件名、内容变了
+    await assembleOnce(s.handlers); await settle()
+    assert.equal(stubCalls(s.dir).length, 2, '内容变了就该重入')
   } finally { s.cleanup() }
 })

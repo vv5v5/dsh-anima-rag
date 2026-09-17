@@ -38,9 +38,12 @@
           search_top_k: 3
 
         # ── embedding ───────────────────────────────────────────────────────
-        # ★★ 模型维度必须与存量向量一致，否则余弦相似度全是垃圾**而且不会报错**。
-        #    实测存量 12 个集合 = **4096 维**（vectors/<coll>/index.json → items[0].vector.length）。
-        #    `Qwen/Qwen3-Embedding-8B` 正是 4096 维。**不要换成 1024 维的 bge-m3。**
+        # ★★ 模型维度必须与**存量向量**一致，否则余弦相似度全是垃圾**而且不会报错**。
+        #    2026-09-17 换过一次模型：`Qwen/Qwen3-Embedding-8B`（4096 维）**在服务端挂死**
+        #    （请求被接受、永不返回；而 `/v1/models` 仍把它列为可用 ⇒ 插件只能等到超时），
+        #    换成 `Qwen/Qwen3-Embedding-4B`（**2560 维**），并把**全部集合**的向量重算了一遍
+        #    （重算脚本与实测见交接）。**换维度/换模型必须整库重算** —— 实测 VL-8B 虽然也是
+        #    4096 维，但与旧向量余弦只有 0.347 ⇒ 不同模型就是不同向量空间，维度相同也不能混用。
         #
         # 🔑 key 走环境变量 ANIMA_RAG_EMBED_KEY，**不要写在这里**：
         #    这把 SiliconFlow key 在本机已经有 3~4 份拷贝了，别再进 git。
@@ -52,7 +55,7 @@
         #    另外单条切片遇超时会自动重试（`ingest.retryOnTimeout`，默认 3 次）。
         embed:
           url: 'https://api.siliconflow.cn/v1'
-          model: 'Qwen/Qwen3-Embedding-8B'
+          model: 'Qwen/Qwen3-Embedding-4B'
           key: ''
           timeout_ms: 60000
 
@@ -136,6 +139,18 @@
           enabled: true
           collectionId: 'dsh-memory'
           dir: ''
+          # ✅ 2026-09-17（D12）：**向量库自己维护** —— 自动入库保持开。
+          # 当天先关过它止血，原因（已修）：入库账本**只存在内存里** ⇒ 每次重启清零 ⇒
+          #   index.json 里 49 条全部重算作"没入过" ⇒ 重启必然整集重灌 49 次 embedding；
+          #   embedding 一挂就成持续风暴。
+          # 现在：账本**落盘**（`lib/ingest-maintenance.js` → `<DSH_HOME>/dsh-anima-rag/ingest-ledger.json`，
+          #   键 = 文件名 + 内容签名 `sourceHash|chars`）⇒ 重启不再重灌、内容没变不重入；
+          # 并新增**自动维护**：把"索引没引用"的孤儿元数据文件**移进** `<集合>/_quarantine-<时间戳>/`
+          #   （真机实测 592 个占 90%，纯占盘、检索看不到）—— 移动而非删除，可回退。
+          # ⛔ 查询侧是另一回事：**查询不是每轮都有**，见设计文档 §8 D13（本次不改）。
+          auto: true
+          autoClean: true
+          quarantine: true
 
         # 单轮检索总超时（毫秒）。超时**放行生成**，绝不阻塞主对话。
         timeoutMs: 12000
