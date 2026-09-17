@@ -1,0 +1,101 @@
+{
+  "searchText": "影子抬头看着天花板，想起那天在码头闻到的那股腥味",
+  "bm25SearchText": "影子抬头看着天花板，想起那天在码头闻到的那股腥味",
+  "apiConfig": {
+    "key": "",
+    "url": "https://api.siliconflow.cn/v1",
+    "model": "Qwen/Qwen3-Embedding-8B"
+  },
+  "chatContext": {
+    "ids": [
+      "影子_-0906重开"
+    ],
+    "strategy": {
+      "enabled": true,
+      "recent_weight": 0,
+      "current_session_id": "影子_-0906重开",
+      "global_multiplier": 2,
+      "min_score": 0.2,
+      "steps": [
+        {
+          "type": "base",
+          "count": 5
+        },
+        {
+          "type": "important",
+          "count": 1,
+          "labels": [
+            "Important"
+          ]
+        },
+        {
+          "type": "diversity",
+          "count": 2
+        }
+      ]
+    }
+  },
+  "kbContext": {
+    "ids": [],
+    "strategy": {
+      "enabled": false,
+      "min_score": 0.5,
+      "search_top_k": 3
+    }
+  },
+  "strategy": {
+    "enabled": true,
+    "recent_weight": 0,
+    "current_session_id": "影子_-0906重开",
+    "global_multiplier": 2,
+    "min_score": 0.2,
+    "steps": [
+      {
+        "type": "base",
+        "count": 5
+      },
+      {
+        "type": "important",
+        "count": 1,
+        "labels": [
+          "Important"
+        ]
+      },
+      {
+        "type": "diversity",
+        "count": 2
+      }
+    ]
+  },
+  "ignore_ids": [],
+  "sessionId": "dsh-ab-test",
+  "is_swipe": false,
+  "echoConfig": {
+    "max_count": 5,
+    "base_life": 1,
+    "imp_life": 2,
+    "important_tags": [
+      "Important"
+    ]
+  },
+  "rerankConfig": {
+    "enabled": true,
+    "api": {
+      "url": "https://api.siliconflow.cn/v1/rerank",
+      "key": "",
+      "model": "Qwen/Qwen3-Reranker-8B",
+      "timeout": 15
+    },
+    "count": 5
+  },
+  "bm25Configs": {
+    "chat": [
+      {
+        "collectionId": "影子_-0906重开",
+        "dictionary": []
+      }
+    ],
+    "kb": [],
+    "chat_top_k": 3
+  }
+}

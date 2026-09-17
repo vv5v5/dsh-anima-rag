@@ -1,0 +1,63 @@
+{
+  "name": "dsh-anima-rag",
+  "version": "0.1.0",
+  "description": "Anima RAG memory for DeepSeek Harness: port the SillyTavern anima-rag retrieval core (vector + BM25 dual-track, echo mechanism, strategy steps, rerank interception) into a DSH plugin that injects retrieved history every turn via the async system-prompt/assemble waterfall. · 把 ST 侧 Anima 的检索核心搬进 DSH，每轮注入检索到的历史记忆。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./render": "./lib/render.js",
+    "./query-build": "./lib/query-build.js",
+    "./engine": "./lib/engine.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.zh.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "check": "node --check lib/index.js && node --check lib/render.js && node --check lib/query-build.js",
+    "test": "node --test test/",
+    "postinstall": "patch-package"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "memory",
+    "rag",
+    "anima",
+    "vectra",
+    "bm25",
+    "roleplay"
+  ],
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "*"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "jieba-wasm": "^2.4.0",
+    "js-yaml": "^4.1.1",
+    "minisearch": "^7.2.0",
+    "patch-package": "^8.0.0",
+    "vectra": "^0.12.3",
+    "zod": "^3.25.76"
+  }
+}

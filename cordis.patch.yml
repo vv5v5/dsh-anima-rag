@@ -1,0 +1,142 @@
+# dsh-anima-rag bundle patch —— 每轮把 Anima 检索到的历史记忆注入 system prompt。
+#
+# 安装（**装完必须重启宿主**，插件集在宿主启动时锁定）：
+#   cd <dsh-checkout>
+#   node --import tsx/esm apps/cli/src/bin.ts plugin --profile web add -w file:D:/apps/deepseek/dsh-anima-rag
+#
+# ⚠️ 本文件里的每一个值都有出处，**不是猜的**。整体取自用户在 ST 侧的现役 Anima 配置
+#    （`data/default-user/settings.json` → `extension_settings.anima_memory_system`；
+#      注意是**带下划线**的 `extension_settings`，与 ST 常见的 `extensionSettings` 是两个不同的键）。
+#    改动前请先读 `docs/ENGINE-NOTES*.md` 与 `lib/index.js` 的 DEFAULTS 注释。
+- insert:
+    - id: anima-rag
+      name: 'dsh-anima-rag'
+      config:
+        enabled: true
+
+        # ── 数据根：**继承** ST 侧现役 Anima 的检索资产，不重建 ──────────────
+        # 12 个 vectra 集合（17.3 MB）+ 11 个 BM25 库 + session 回响状态。
+        # ⚠️ 只读引用；echoPersist=true 时回响机制会回写 sessions\（这是必要的，见下）。
+        data:
+          vectorRoot: 'D:\apps\SillyTavern-Launcher\SillyTavern\plugins\anima-rag\vectors'
+          sessionRoot: 'D:\apps\SillyTavern-Launcher\SillyTavern\plugins\anima-rag\data\sessions'
+          bm25Root: 'D:\apps\SillyTavern-Launcher\SillyTavern\plugins\anima-rag\data\bm25_indexes'
+
+        # ── 集合 ────────────────────────────────────────────────────────────
+        # ① `dsh-memory` = **我们自己写进去的**记忆（见下面 `ingest`），排第一：
+        #    它就是 `strategy.current_session_id`（引擎给"当前会话库"加分用的那个）。
+        # ② `影子_-0906重开` = ST 侧现役聊天库，**保留**（照旧会被检索到，不回归）。
+        # ⚠️ 换周目时：DSH 侧改上面 `ingest.collectionId`（或给每周边一个集合名）；
+        #    ST 侧那一项按需改。
+        chatCollections: ['dsh-memory', '影子_-0906重开']
+        # 知识库支线默认关（与 ST 侧「受开关严格控制的载荷」一致）。
+        kbCollections: []
+        kb:
+          enabled: false
+          min_score: 0.5
+          chunk_size: 500
+          search_top_k: 3
+
+        # ── embedding ───────────────────────────────────────────────────────
+        # ★★ 模型维度必须与存量向量一致，否则余弦相似度全是垃圾**而且不会报错**。
+        #    实测存量 12 个集合 = **4096 维**（vectors/<coll>/index.json → items[0].vector.length）。
+        #    `Qwen/Qwen3-Embedding-8B` 正是 4096 维。**不要换成 1024 维的 bge-m3。**
+        #
+        # 🔑 key 走环境变量 ANIMA_RAG_EMBED_KEY，**不要写在这里**：
+        #    这把 SiliconFlow key 在本机已经有 3~4 份拷贝了，别再进 git。
+        #
+        # ⏱️ `timeout_ms`（2026-09-16 真机实测后从 15000 提到 60000）：
+        #    provider **冷启动首次调用**实测 18.0s / 49.8s，热了之后 0.16–0.33s ⇒
+        #    原来引擎里硬编码的 15s 会让「第一次写入/检索」**必然**被 abort
+        #    （真机报「向量 API 请求超时无响应」）。引擎已改成读这个值（未配则回落 15000）。
+        #    另外单条切片遇超时会自动重试（`ingest.retryOnTimeout`，默认 3 次）。
+        embed:
+          url: 'https://api.siliconflow.cn/v1'
+          model: 'Qwen/Qwen3-Embedding-8B'
+          key: ''
+          timeout_ms: 60000
+
+        # ── rerank ──────────────────────────────────────────────────────────
+        # ★ 用户在 ST 侧是**开着**的（rag.rerank_enabled: true，rerank_count: 5）。
+        # 🔑 key 走 ANIMA_RAG_RERANK_KEY（同一把 SiliconFlow key 即可）。
+        rerank:
+          enabled: true
+          count: 5
+          api:
+            url: 'https://api.siliconflow.cn/v1/rerank'
+            model: 'Qwen/Qwen3-Reranker-8B'
+            key: ''
+            timeout: 15
+
+        # ── 检索调参（★ 用户 `rag.*` 的实际值）──────────────────────────────
+        # 注意服务端只从 **strategy 对象**里读 min_score / recent_weight
+        # （anima-rag/index.js:679-680、:2402-2404），payload 顶层不读。
+        # candidate_multiplier / base_count 在服务端 0 命中（前端字段）；
+        # 这里把 candidate_multiplier 映射到策略的 global_multiplier（服务端 :905-923 消费）。
+        rag:
+          min_score: 0.2
+          base_count: 5
+          recent_weight: 0
+          candidate_multiplier: 2
+
+        # ── 回响机制（★ 用户调过的口味，比库默认 3/10/10 短得多）─────────────
+        # base_life 1 / imp_life 2 / max_count 5 = 「记忆更容易枯竭、卡槽更少」。
+        echo:
+          max_count: 5
+          base_life: 1
+          imp_life: 2
+          important_tags: ['Important']
+        # ⚠️ 生产必须是 true：回响机制靠回写 sessions 才能推进 life 衰减与复活，
+        #    设 false 会退化成「每轮都是同一批记忆」。做**只读对照测试**时才临时设 false。
+        echoPersist: true
+
+        # ── 检索词构造（★ 用户 vector_prompt = count: 2）────────────────────
+        vectorPrompt:
+          - type: 'context'
+            count: 2
+        regexStrings: []
+        regexSkipUser: true
+        # ⚠️ ST 的 skip_layer_zero 是排除「楼 0 = 问候语」，用户真值 true；
+        #    **DSH 历史里没有问候语**（问候语走 import-context），所以这里 false。
+        #    若发现检索词被历史首条污染，再打开（语义 = 跳过第一条消息）。
+        skipLayerZero: false
+
+        # ── 注入 ────────────────────────────────────────────────────────────
+        inject:
+          # DSH Tavern 用 10 / 45，L1 状态卡用 50 → 我们排其后。
+          order: 55
+          # ★ 用户真值模板，逐字照抄；那段英文硬约束是防「把历史记忆误当当前事件」的关键。
+          chatTemplate: "<recalledMemories>[IMPORTANT: The following are retrieved HISTORICAL memories. Use them ONLY to enrich internal monologues, add nostalgia, or reference the past. They are STRICTLY THE PAST. You MUST NOT treat them as current events.]\n{{rag}}\n</recalledMemories>\n<immediateHistory>\n{{recent_history}}\n</immediateHistory>"
+          # ★ 用户真值（knowledge_injection.template）。
+          kbTemplate: "<knowledge>\n{{knowledge}}\n</knowledge>"
+          # ★ 填 {{recent_history}} 的「最近 N 条总结」（用户 recent_count: 2）。
+          recentCount: 2
+          maxChars: 6000
+          header: ''
+
+        # ── 「最近总结」的落点 = L2 写入者② 的统一记忆目录 ───────────────────
+        # ★ 2026-09-16（T4）改成 `'auto'`：**从 memory-archive 的 root 推**，不再写死。
+        #   为什么：写死的那份（`playthrough-0f08d055-…`）指向一个**已被删除的周目**，
+        #   实测 `Test-Path` = False ⇒ 近场记忆恒为空；而 memory-archive 的 root 又指向
+        #   `playthrough-938a0d26-…`、Tavern 目录里能发现的是 `playthrough-1e59aed6-…`
+        #   —— 三个 id 三个样。跟 root 走才不会第二次错。
+        #   解析式：`<workspaceBase>/<root.characterId>/<root.playthroughId>/archive/summaries`
+        summariesDir: 'auto'
+        # `'auto'` 用的 Tavern 工作区根（换机器/换工作区要改这一行）。
+        workspaceBase: 'D:\apps\dsh-tarven'
+        # memory-archive 的配置文件；留空 = `<DSH_HOME>/dsh-memory-archive/config.json`。
+        memoryArchiveConfig: ''
+
+        # ── 写入口（2026-09-16 新增，甲方案 T2）────────────────────────────────
+        # 把摘要切片写进**向量 + BM25** 的目标集合；工具 `anima_ingest` 走这里。
+        # ⛔ 目标集合与 `chatCollections`（ST 那份 `影子_-0906重开`）**分开**：
+        #    写路径默认不许碰 ST 的存量数据，要往那儿写必须显式传 collectionId。
+        # `dir` 留空 = 用上面的 summariesDir（`anima_ingest` 不显式给 dir 时）。
+        ingest:
+          enabled: true
+          collectionId: 'dsh-memory'
+          dir: ''
+
+        # 单轮检索总超时（毫秒）。超时**放行生成**，绝不阻塞主对话。
+        timeoutMs: 12000
+        debug: false
