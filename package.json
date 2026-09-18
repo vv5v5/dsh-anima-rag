@@ -1,7 +1,7 @@
 {
   "name": "dsh-anima-rag",
   "version": "0.1.0",
-  "description": "Anima RAG memory for DeepSeek Harness: port the SillyTavern anima-rag retrieval core (vector + BM25 dual-track, echo mechanism, strategy steps, rerank interception) into a DSH plugin that injects retrieved history every turn via the async system-prompt/assemble waterfall. · 把 ST 侧 Anima 的检索核心搬进 DSH，每轮注入检索到的历史记忆。",
+  "description": "Anima RAG memory for DeepSeek Harness: port the SillyTavern anima-rag retrieval core (vector + BM25 dual-track, echo mechanism, strategy steps, rerank interception) into a DSH plugin that injects retrieved history every turn via the async system-prompt/assemble waterfall. · 把 ST 侧 Anima 的检索核心搬进 DSH，每轮注入检索到的历史记忆。 ★ 独立重写；检索核心与摘要准则移植自 Ellina 的 Anima-Memory-System（https://gitee.com/Ellinav/Anima-Memory-System，v3.3.6，CC BY-NC 4.0）；本仓库为 DSH 侧的维护方。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -37,7 +37,7 @@
     "bm25",
     "roleplay"
   ],
-  "license": "MIT",
+  "license": "CC-BY-NC-4.0",
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
