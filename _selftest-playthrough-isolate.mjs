@@ -4,8 +4,8 @@
  *
  * 用法：node _selftest-playthrough-isolate.mjs
  *
- * 最后一组是**真机锚**：拿磁盘上真实的 `vectors/dsh-memory/index.json`（62 条）算出 deny 名单，
- * 断言 **正好 13 条被排除、且那 13 条就是「没有 pt: 标签」的那批**。
+ * 最后一组是**真机锚**：拿磁盘上真实的 `vectors/dsh-memory/index.json`（2026-09-19 为 51 条）算出 deny 名单，
+ * 断言 **正好 2 条被排除、且那 2 条就是「没有 pt: 标签」的那批**（原先 62/13，少掉的 11 条是孤儿回收真删的）。
  * 这是"隔离到底装对了没有"的硬证据 —— ⛔ 别删。
  */
 import { existsSync, readFileSync } from 'node:fs'
@@ -66,18 +66,21 @@ check('④ fail-closed：拿不到绑定周目 / 索引解析不了 ⇒ 一律 b
 })
 
 check('⑤ 摘要一行：口径统一（日志与状态端点共用）', () => {
-  const s = isolationSummary({ collectionId: 'dsh-memory', bound: BOUND, denyCount: 13, total: 62 })
-  assert.ok(s.includes('dsh-memory') && s.includes('13/62'), s)
+  const s = isolationSummary({ collectionId: 'dsh-memory', bound: BOUND, denyCount: 2, total: 51 })
+  assert.ok(s.includes('dsh-memory') && s.includes('2/51'), s)
 })
 
 const REAL = 'D:/apps/SillyTavern-Launcher/SillyTavern/plugins/anima-rag/vectors/dsh-memory/index.json'
 if (existsSync(REAL)) {
-  check('⑥ ★真机锚：真库 62 条 ⇒ deny 正好 13 条，且与「没有 pt: 标签」的集合逐条相等', () => {
+  check('⑥ ★真机锚：真库 51 条 ⇒ deny 正好 2 条，且与「没有 pt: 标签」的集合逐条相等', () => {
     const items = JSON.parse(readFileSync(REAL, 'utf8')).items
-    assert.equal(items.length, 62, '真库条数变了 ⇒ 请重核本锚的期望值')
+    // ★ 2026-09-19 重核：62 → 51。少掉的 11 条正是**孤儿回收真删掉的那批**
+    //   （10 改名孤儿 + 1 import 清单；三层一致：index/metadata 各 62→51、BM25 81→70）。
+    //   ⇒ 它们本来就在 deny 名单里，所以 deny 13 → 2（只剩 probe_1/2 两条测试残留）。
+    assert.equal(items.length, 51, '真库条数变了 ⇒ 请重核本锚的期望值')
     const deny = denyIndexesForPlaythrough(items, BOUND)
     const untagged = items.filter((it) => !tagsOf(it).includes(ptTagOf(BOUND))).map(sliceIndexOf)
-    assert.equal(deny.length, 13, 'deny 应正好 13 条（10 改名孤儿 + 1 import 清单 + 2 测试残留）')
+    assert.equal(deny.length, 2, 'deny 应正好 2 条（只剩 probe_1/2 两条测试残留；那批改名孤儿已被回收删除）')
     assert.deepEqual([...deny].sort(), [...untagged].sort(), 'deny 名单必须与"没本周目标签"的集合逐条相等')
     assert.equal(deny.some((x) => x.endsWith('.json')), false, '切片 index 不该带 .json')
   })
