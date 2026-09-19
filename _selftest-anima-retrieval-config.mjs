@@ -17,7 +17,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { mergeConfig, applyRetrievalConfig, config as DEFAULTS } from './lib/index.js'
+import { mergeConfig, applyRetrievalConfig, memoryArchiveConfigFile, config as DEFAULTS } from './lib/index.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 let pass = 0
@@ -29,6 +29,31 @@ const check = (label, cond, extra = '') => {
 
 // 自造假 key（字面量自造；⛔ 不读环境变量、不碰真密钥）
 const FAKE = 'sk-TESTKEY-DO-NOT-USE'
+
+// ───────── ⓪ 记忆库配置**路径**（2026-09-19 真机装配期崩的回归位）─────────
+// 真机症状：`DSH_HOME` 一设（launcher 就是 `<home>/.dsh`），旧写法拼成 `<…>\.dsh\.dsh\…`
+// ⇒ 读不到 retrieval ⇒ key 为空 ⇒ 装配期 `getEmbedding` 抛 `API Key missing` ⇒ **模型没有回复**。
+{
+  const win = { DSH_HOME: 'C:\\Users\\w\\.dsh' }
+  const p1 = memoryArchiveConfigFile({ env: win })
+  check('⓪ DSH_HOME 本身就是 .dsh ⇒ 只拼一层（不再出现 \\.dsh\\.dsh\\）',
+    p1 === join('C:\\Users\\w\\.dsh', 'dsh-memory-archive', 'config.json') && !p1.includes('\\.dsh\\.dsh\\'), p1)
+  // ★ 反证：把旧写法算一遍，它**必须**是错的 —— 否则这条回归位没意义
+  const oldWay = join(win.DSH_HOME || 'x', '.dsh', 'dsh-memory-archive', 'config.json')
+  check('⓪ ★反证：旧写法确实会多一层 .dsh（这就是真机上读到空配置的原因）',
+    oldWay.includes('\\.dsh\\.dsh\\') && oldWay !== p1, oldWay)
+  // 没设 DSH_HOME ⇒ 退到 <home>/.dsh
+  const p2 = memoryArchiveConfigFile({ env: {} })
+  check('⓪ 没设 DSH_HOME ⇒ 退到 <home>/.dsh/…', p2.endsWith(join('.dsh', 'dsh-memory-archive', 'config.json')), p2)
+  // 空白 / 非字符串 ⇒ 当没设（不拼出空段）
+  const p3 = memoryArchiveConfigFile({ env: { DSH_HOME: '   ' } })
+  check('⓪ 空白 DSH_HOME ⇒ 当没设，也不拼出 ` .dsh` 这种怪路径',
+    p3 === p2 && !p3.includes(' .dsh'), p3)
+  // 显式 override 优先，且原样返回（允许前后空白）
+  check('⓪ 显式 override 优先且原样使用',
+    memoryArchiveConfigFile({ env: win, override: '  D:\\x\\config.json  ' }) === 'D:\\x\\config.json')
+  check('⓪ override 为空串 ⇒ 回落环境推导', memoryArchiveConfigFile({ env: win, override: '' }) === p1)
+}
 
 // ───────── ① 验收 3 三相 ─────────
 
