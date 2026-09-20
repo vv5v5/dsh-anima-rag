@@ -14,12 +14,14 @@
   },
   "files": [
     "lib",
+    "patches",
     "cordis.patch.yml",
-    "README.zh.md",
+    "README.md",
     "LICENSE"
   ],
   "engines": {
-    "node": ">=22.13"
+    "node": ">=22.13",
+    "dsh": "*"
   },
   "scripts": {
     "check": "node --check lib/index.js && node --check lib/render.js && node --check lib/query-build.js",
@@ -59,5 +61,14 @@
     "patch-package": "^8.0.0",
     "vectra": "^0.12.3",
     "zod": "^3.25.76"
+  },
+  "author": "dsh-anima-rag contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vv5v5/dsh-anima-rag.git"
+  },
+  "homepage": "https://github.com/vv5v5/dsh-anima-rag#readme",
+  "bugs": {
+    "url": "https://github.com/vv5v5/dsh-anima-rag/issues"
   }
 }
