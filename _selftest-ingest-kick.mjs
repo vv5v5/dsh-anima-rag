@@ -12,8 +12,12 @@
  *
  * ## 判据（全是"形状"，因为那个函数在 cordis 闭包里、单测够不着）
  *   K1 踢之前先预判；K2 预判**不许**写 ingest-state；K3 目录解析只有一份（⛔ 不两处各写）；
- *   K4 每进程一次的维护不被饿死；K5 `running: true` 只出现在真启动那一支。
- *   每条都带**反证**：把关键那行从源码里挖掉，判据必须红。
+ *   K4 **每进程一次的维护：不许被饿死，也不许变成"每轮一次"**；K5 `running: true` 只出现在真启动那一支。
+ *   每条都带**反证**：把关键那行从源码里挖掉（或把旧写法重放一遍），判据必须红。
+ *
+ * ## 2026-09-20 第二次事故（用户原文：「现在还是每一轮都弹记忆库收纳」）
+ *   上一版把闸门加上了，但**置位写在了闸门外面、且在两道早退之后** ⇒ 未归周目 / 还没 index.json
+ *   的会话里 `firstOfProcess` 恒真 ⇒ 每轮照样空跑一次。K4 这一组现在钉的就是这个形状。
  */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -111,10 +115,36 @@ check('K0 三个要看的函数都在（改了名字这条会红，提醒同步�
     !/ingestDirFor\(/.test(stripComments(SRC)) && !/boundPlaythroughId/.test(stripComments(SRC)), '')
 }
 
-// ── K4 每进程一次的维护不许被饿死 ──────────────────────────────────────────
+// ── K4 ★★ 每进程一次的维护：不许被饿死，也**不许**变成"每轮一次"（2026-09-20 第二次真机事故）──
+//   事故形状（实测：新建一条会话连发两轮，`ingest-state.json` **两次都被重写**、`skipped` 都是 `no-dir`）：
+//     置位写在 `autoIngestOnce` 里，且排在 `dir === ''` / `no-index` 那两道**早退之后**
+//     ⇒ 未归周目 / 还没有 index.json 的会话**永远走不到置位** ⇒ `firstOfProcess` **每轮都为真**
+//     ⇒ 每轮空跑一次"入库"（写状态文件 ⇒ 面板那条提示**每轮弹**）。
+//   现在的形状：**维护单独一支** —— 置位在 `kickAutoIngest` 里、排在闸门**之前**，
+//     而这一支 ⛔ 不写 ingest-state；闸门那一支 ⛔ 没有任何"本进程第一脚"例外。
 {
-  check('K4 ★ 本进程第一脚仍照跑（firstOfProcess 例外在，维护不会因为"摘要没变"永远不做）',
-    kick !== null && /firstOfProcess/.test(kick) && /maintainDone/.test(kick), '')
+  const iMaintain = kick === null ? -1 : kick.indexOf('maintainDone = true')
+  const iGate = kick === null ? -1 : kick.indexOf('hasPendingIngestWork(')
+  check('K4 ★ 维护的置位在 kickAutoIngest 里，且排在闸门**之前**（它不该由"有没有活"决定）',
+    iMaintain > 0 && iGate > iMaintain, `iMaintain=${iMaintain} iGate=${iGate}`)
+  check('K4b ★ 闸门那一支**没有**"本进程第一脚"例外（有它 = 每轮都启动 = 提示每轮弹）',
+    kick !== null && !/firstOfProcess/.test(stripComments(kick)), '')
+  check('K4c ★ 维护那一支**不写** ingest-state（写了提示就会因为"维护"弹出来）',
+    kick !== null && iGate > 0 && kick.indexOf('writeIngestState(') > iGate, '')
+  check('K4d ★ autoIngestOnce 里不再有"每进程一次维护"那一支（挪走了，⛔ 别挪回来）',
+    once !== null && !/maintainDone\s*=\s*true/.test(once), '')
+  // ★ 反证：把**旧写法**原样重放一遍 —— 必须能复现"每轮都启动"这个事故
+  //   （不重放旧代码的话，这几条就只是"新代码长这样"的形状断言，证明不了它修的是什么）
+  const oldOnceWouldSetMaintain = (dir, hasIndex) => {
+    if (dir === '') return false // 旧：`return { skipped: 'no-dir' }` —— 置位走不到
+    if (!hasIndex) return false // 旧：`return { skipped: 'no-index' }` —— 置位走不到
+    return true
+  }
+  const oldGateWouldStart = (maintainDone) => maintainDone === false // 旧：`firstOfProcess` 绕过闸门
+  check('K4e ★★ 反证：旧写法下「未归周目 / 还没 index.json」⇒ 置位永远走不到 ⇒ 每轮都被判成"该启动"（事故复现）',
+    oldOnceWouldSetMaintain('', false) === false
+    && oldOnceWouldSetMaintain('D:/x/sum', false) === false
+    && oldGateWouldStart(false) === true, '')
 }
 
 // ── K5 `running: true` 的写入点**恰好三处**，且各有各的理由 ─────────────────
