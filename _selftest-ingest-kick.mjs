@@ -29,6 +29,11 @@ const check = (label, cond, extra = '') => {
   console.log(`${cond ? 'PASS' : 'FAIL'} ${label}${cond ? '' : '  ← ' + String(extra)}`)
 }
 
+/** 剥掉注释 —— 静态断言要看**活代码**，别被"已删除"之类的说明文字骗过（与别的台子同一份）。 */
+function stripComments(src) {
+  return String(src).replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1')
+}
+
 /**
  * 抠出某个顶层函数的函数体（大括号配对；⛔ 不靠正则到下一个 function）。
  *
@@ -88,12 +93,22 @@ check('K0 三个要看的函数都在（改了名字这条会红，提醒同步�
 
 // ── K3 目录解析只有一份实现（⛔ 不许两处各写一遍 —— 那是"两处真相"） ────────
 {
-  const ingestDirFn = bodyOf(SRC, 'ingestDirFor')
-  const n = ingestDirFn === null ? -1 : (ingestDirFn.match(/resolvePlaythroughForSession\(/g) || []).length
-  check('K3 ★ `resolvePlaythroughForSession(` 在 ingestDirFor 里只出现 1 次（抽出去、被两处共用）',
-    n === 1, `ingestDirFor 里出现 ${n} 次`)
-  check('K3b ★ autoIngestOnce 与 hasPendingIngestWork **都**用 ingestDirFor（判据同源）',
-    once !== null && pending !== null && once.includes('ingestDirFor(') && pending.includes('ingestDirFor('), '')
+  // ★ 2026-09-20：「这次该入哪个目录」并进了 `sessionSummariesDir()`（会话优先、**无兜底**），
+  //   与读侧「最近 N 条总结」共用同一份解析。本台子跟着改名。
+  const dirFn = bodyOf(SRC, 'sessionSummariesDir')
+  const n = dirFn === null ? -1 : (dirFn.match(/resolvePlaythroughForSession\(/g) || []).length
+  check('K3 ★ `resolvePlaythroughForSession(` 在 sessionSummariesDir 里只出现 1 次（一份实现、读写两侧共用）',
+    n === 1, `sessionSummariesDir 里出现 ${n} 次`)
+  check('K3b ★ autoIngestOnce 与 hasPendingIngestWork **都**用 sessionSummariesDir（判据同源）',
+    once !== null && pending !== null && once.includes('sessionSummariesDir(') && pending.includes('sessionSummariesDir('), '')
+  // ★★ 2026-09-20 口径（用户：「认不出来的会话默认为新会话。会话优先」）——
+  //   兜底**必须是空串**：传面板绑定值就会让一条新会话去读/写**上一轮**的库。
+  check('K3c ★★ 会话优先、**不给兜底**：resolvePlaythroughForSession 的第 3 参是空串',
+    dirFn !== null && /resolvePlaythroughForSession\([^)]*,\s*''\s*\)/.test(dirFn), dirFn === null ? '缺函数' : '')
+  check('K3d ★★ 反证：把兜底换回 boundPlaythroughId() ⇒ 同一句判据必红',
+    dirFn !== null && !/resolvePlaythroughForSession\([^)]*,\s*''\s*\)/.test(dirFn.replace(/,\s*''(\s*\))/, ', boundPlaythroughId()$1')), '')
+  check('K3e ★ 旧面板绑定兜底那两样（ingestDirFor / boundPlaythroughId）都已不存在（活代码里零命中）',
+    !/ingestDirFor\(/.test(stripComments(SRC)) && !/boundPlaythroughId/.test(stripComments(SRC)), '')
 }
 
 // ── K4 每进程一次的维护不许被饿死 ──────────────────────────────────────────

@@ -4,6 +4,9 @@
  * 覆盖（对应任务书验收 3 / 6 与 T3）：
  *   ① ★反证（验收 3 三相，喂给读配置函数）：
  *       相① 记忆库 retrieval.* 有值 ⇒ 用它（embed.url/model、rerank.url=去尾斜杠+'/rerank'、两边同 key）；
+ *       相①b ★ 2026-09-20「两个模型都要有接口」：重排有**自己的** `rerankUrl`/`rerankKey`
+ *            （可落在不同服务商；url 改了**不许**盖掉显式填的 rerankUrl；地址已以 /rerank 结尾不重复拼；
+ *             rerankUrl/rerankKey 为空 ⇒ 逐条退回相①的旧行为 = 向后兼容）；
  *       相② 记忆库无值 ⇒ 回落 DEFAULTS（新装机没配过也能跑）；
  *       相③ ⛔ **不再读环境变量**（2026-09-18 改口径）：env 里有 key 也一点不读。
  *     ⛔ 不存在也不断言任何"预设兜底"层 —— 生效顺序只有两层。
@@ -93,6 +96,48 @@ const FAKE = 'sk-TESTKEY-DO-NOT-USE'
     && cfg2.rerank.api.url === 'https://fresh.example.invalid/v1/rerank'
     && cfg2.rerank.api.model === DEFAULTS.rerank.api.model,
     JSON.stringify({ embedUrl: cfg2.embed.url, rerankUrl: cfg2.rerank.api.url, rerankModel: cfg2.rerank.api.model }))
+}
+
+// 相①b（★ 2026-09-20 用户口径「两个模型都要有接口」）：重排有**自己的**地址与密钥
+{
+  const base = mergeConfig({}, { env: {} })
+  const cfg = applyRetrievalConfig(base, {
+    url: 'https://emb.example.invalid/v1',
+    model: 'mt-embed-model',
+    key: 'emb-key',
+    rerankUrl: 'https://rr.example.invalid/v1',
+    rerankModel: 'mt-rerank-model',
+    rerankKey: 'rr-key',
+  })
+  check('①b 两个模型各一套 ⇒ embed 与 rerank **落在不同服务商**上（rerankUrl 单独生效）',
+    cfg.embed.url === 'https://emb.example.invalid/v1' && cfg.rerank.api.url === 'https://rr.example.invalid/v1/rerank'
+    && cfg.rerank.api.model === 'mt-rerank-model',
+    JSON.stringify({ embed: cfg.embed.url, rerank: cfg.rerank.api.url }))
+  check('①b 两个密钥各用各的（向量用 key、重排用 rerankKey）',
+    cfg.embed.key === 'emb-key' && cfg.rerank.api.key === 'rr-key',
+    JSON.stringify({ embed: cfg.embed.key === 'emb-key', rerank: cfg.rerank.api.key === 'rr-key' }))
+  // ★ 反证：只给了向量地址（url）也**不许**盖掉显式填的重排地址 —— 改版前是 `url + /rerank` 无条件覆盖
+  const cfg2 = applyRetrievalConfig(base, { url: 'https://emb2.example.invalid/v1', rerankUrl: 'https://rr2.example.invalid/v1' })
+  check('①b ★反证：改 url **不覆盖**显式填的 rerankUrl（旧的无条件推导已撤）',
+    cfg2.embed.url === 'https://emb2.example.invalid/v1' && cfg2.rerank.api.url === 'https://rr2.example.invalid/v1/rerank',
+    JSON.stringify({ embed: cfg2.embed.url, rerank: cfg2.rerank.api.url }))
+  // 粘贴的已经是完整 `…/rerank` ⇒ 不许再拼一次（拼两次 = 永远不通，且最难查的一类）
+  const cfg3 = applyRetrievalConfig(base, { rerankUrl: 'https://rr3.example.invalid/v1/rerank' })
+  check('①b 重排地址已以 /rerank 结尾 ⇒ ⛔ 不拼成 /rerank/rerank',
+    cfg3.rerank.api.url === 'https://rr3.example.invalid/v1/rerank', cfg3.rerank.api.url)
+  const cfg4 = applyRetrievalConfig(base, { rerankUrl: 'https://rr4.example.invalid/v1///' })
+  check('①b 重排地址尾斜杠归一后再拼 /rerank', cfg4.rerank.api.url === 'https://rr4.example.invalid/v1/rerank', cfg4.rerank.api.url)
+  // 只填重排密钥 ⇒ 只给重排用（向量那把不受影响、仍空）
+  const cfg5 = applyRetrievalConfig(base, { rerankKey: 'only-rr' })
+  check('①b 只填 rerankKey ⇒ 只给重排用（向量那把仍空）', cfg5.embed.key === '' && cfg5.rerank.api.key === 'only-rr',
+    JSON.stringify({ embed: cfg5.embed.key, rerank: cfg5.rerank.api.key }))
+  // 兼容：rerankUrl/rerankKey **显式**为空 ⇒ 回到「url + /rerank + 同一把 key」（= 改版前行为，一字不变）
+  const cfg6 = applyRetrievalConfig(base, {
+    url: 'https://emb6.example.invalid/v1', rerankModel: 'm', rerankUrl: '', rerankKey: '', key: 'k',
+  })
+  check('①b 兼容：rerankUrl/rerankKey 显式空 ⇒ 回到「url + /rerank + 同一把 key」',
+    cfg6.rerank.api.url === 'https://emb6.example.invalid/v1/rerank' && cfg6.rerank.api.key === 'k',
+    JSON.stringify({ url: cfg6.rerank.api.url, key: cfg6.rerank.api.key === 'k' }))
 }
 
 // 相③（2026-09-18 改口径）：⛔ **不再读环境变量** —— 键的唯一来源是记忆库配置。

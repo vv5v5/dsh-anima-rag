@@ -88,5 +88,46 @@ if (existsSync(REAL)) {
   console.log('[SKIP] ⑥ 真机锚：本机没有那个文件 —— ⛔ 不算通过，只是测不了')
 }
 
+// ───────── ⑦ 2026-09-20 口径：隔离**会话优先、认不出当新会话**（⛔ 不给面板绑定兜底） ─────────
+//   用户原话：「认不出来的会话默认为新会话。会话优先」。
+//   ④ 守的是**纯函数**那一半（bound 为空 ⇒ blocked）；这一组守**接线**：兜底那个参数到底传了什么。
+//   ⚠️ 传面板绑定值 = 一条新会话照样去查**上一轮**的集合（串味，不是兜底）—— 真机就是这么坏的。
+check('⑦★ 隔离与入库目标都**会话优先、无兜底**（认不出 ⇒ 当新会话），且兜底参数就是空串', () => {
+  const src = readFileSync(new URL('./lib/index.js', import.meta.url), 'utf8')
+  /** 抠某个顶层函数的函数体（大括号配对；先跨过参数表）。 */
+  const bodyOf = (name) => {
+    const at = src.indexOf(`function ${name}(`)
+    if (at < 0) return null
+    const po = src.indexOf('(', at)
+    let d = 0
+    let pc = -1
+    for (let i = po; i < src.length; i += 1) {
+      if (src[i] === '(') d += 1
+      else if (src[i] === ')') { d -= 1; if (d === 0) { pc = i; break } }
+    }
+    if (pc < 0) return null
+    const open = src.indexOf('{', pc)
+    if (open < 0) return null
+    let depth = 0
+    for (let i = open; i < src.length; i += 1) {
+      if (src[i] === '{') depth += 1
+      else if (src[i] === '}') { depth -= 1; if (depth === 0) return src.slice(open, i + 1) }
+    }
+    return null
+  }
+  // ⚠️ 两个调用点：隔离闸（读侧）与 sessionSummariesDir（读+写侧共用）。⛔ 两处都必须无兜底。
+  const pat = /resolvePlaythroughForSession\([^;]*?,\s*''\s*\)/
+  for (const name of ['isolationPlan', 'sessionSummariesDir']) {
+    const body = bodyOf(name)
+    assert.ok(body !== null, `${name} 不在了（改名了？同步本台子）`)
+    assert.ok(pat.test(body), `${name} 的兜底不是空串：` + (body.match(/resolvePlaythroughForSession\([^;]*?\)/) || [''])[0])
+    // ★ 反证：把兜底换回面板绑定 ⇒ 同一句判据必红
+    assert.equal(pat.test(body.replace(/,\s*''\s*\)/, ', boundPlaythroughId()')), false, `${name} 反证失败：换回旧兜底后仍能命中`)
+  }
+  // 那个"读面板绑定"的解析器已**整体删除**（剥注释后零命中）—— ⛔ 别加回来当兜底
+  assert.equal(/boundPlaythroughId/.test(src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')), false,
+    'boundPlaythroughId 又出现了（那是"新会话冒充上一轮"的入口）')
+})
+
 console.log(`\n== 总结：${pass} 通过 / ${fails.length} 失败 ==`)
 if (fails.length > 0) { for (const f of fails) console.log('  ✖ ' + f); process.exit(1) }

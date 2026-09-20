@@ -98,6 +98,37 @@ check('① rootSessionIdOf：取 ext.pmpDshTavern.rootSessionId；缺了 ⇒ 空
   })())
 }
 
+// ───────── ②c 2026-09-20：**rootSessionId 归属优先**（判定与行序无关） ─────────
+//   真机事故：一条会话同时是**影子·12周目**的 rootSessionId、又在 **Rika·1周目** 的 timeline 里
+//   当 variant 切片 ⇒ 旧的"catalog 顺序先到者胜"把它判给了更靠前的 Rika·1周目 ⇒ 检索目标/归档楼层
+//   全指到一个**空周目**（用户看到的就是"怎么还是没用 roleplay-memory"）。
+{
+  const rika = { entry: { id: PT_A }, timeline: { nodes: [{ variants: [{ sessionId: S_ROOT_B }] }] } }
+  const shadow = {
+    entry: { id: PT_B, ext: { pmpDshTavern: { rootSessionId: S_ROOT_B } } },
+    timeline: { nodes: [{ variants: [{ sessionId: S_ROOT_B }] }] },
+  }
+  for (const [name, rows] of [['variant 行在前', [rika, shadow]], ['root 行在前', [shadow, rika]]]) {
+    const idx = buildSessionIndex(rows)
+    check(`②c ★ ${name} ⇒ 判给**它是根**的那个周目（与行序无关）`,
+      idx.map.get(S_ROOT_B) === PT_B, `bound=${idx.map.get(S_ROOT_B)}`)
+  }
+  check('②c ★ conflicts 仍如实列出（⛔ 不静默丢）', buildSessionIndex([rika, shadow]).conflicts.includes(S_ROOT_B))
+  // ★ 反证：旧的"先到者胜"在这份形状上**确实判错**（证明这条判据不是白加的）
+  const oldWay = (list) => {
+    const map = new Map()
+    for (const row of list) {
+      const ids = new Set()
+      for (const n of row.timeline.nodes) for (const v of n.variants) ids.add(v.sessionId)
+      const root = row.entry.ext?.pmpDshTavern?.rootSessionId
+      if (root) ids.add(root)
+      for (const id of ids) if (!map.has(id)) map.set(id, row.entry.id)
+    }
+    return map
+  }
+  check('②c ★ 反证：旧规则在这份形状上判给了"只引用它"的那个（错的）', oldWay([rika, shadow]).get(S_ROOT_B) === PT_A, '')
+}
+
 // ───────── ②b 角色与目录：写侧要靠它拼 `<base>/<角色>/<周目>/archive/summaries` ─────────
 {
   check('②b characterIdOf / playthroughDirOf：优先 catalog 的显式字段与 path 前两段',

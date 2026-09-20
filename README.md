@@ -27,9 +27,25 @@
 
 ## 配置从哪来
 
-**密钥与端点不读环境变量**，只来自记忆库的设置（`<DSH_HOME>/dsh-memory-archive/config.json` 的 `retrieval` 段）：
-接口地址 / 向量模型 / 重排模型 / 密钥 / 是否参与检索（`chatEnabled`）。
+**密钥与端点不读环境变量**，只来自记忆库的设置（`<DSH_HOME>/dsh-memory-archive/config.json` 的 `retrieval` 段）。
+**两个模型各一套接口**（2026-09-20 起）—— 可以落在不同服务商上：
+
+| | 向量模型 | 重排模型 |
+|---|---|---|
+| 接口地址（baseURL） | `url` | `rerankUrl`（**空 ⇒ 沿用 `url`**） |
+| 模型名 | `model` | `rerankModel` |
+| 密钥 | `key` | `rerankKey`（**空 ⇒ 沿用 `key`**） |
+
+端点由 baseURL 推导：向量 = `url` + `/embeddings`；重排 = `rerankUrl` + `/rerank`
+（已经以 `/rerank` 结尾就不再拼）。另有 `chatEnabled` = 是否参与检索。
+⚠️ 重排那两项留空 ⇒ **逐条退回**改版前的行为（同一把 key、`url` + `/rerank`），老配置一字不用改。
 读不到就回落本插件的默认值（**不吞环境凭据**）。
+
+★ **「哪个周目」是会话优先，认不出来的会话当新会话**（2026-09-20）：检索的隔离闸与自动入库的目标，
+按**这个会话**在 Tavern `catalog.json`/`timeline.json` 里归入的那个周目算；**认不出 ⇒ 不检索、不入库、
+不注「最近 N 条总结」**（fail-closed，⛔ 不拿面板绑定值兜底 —— 那会让一条新会话去读/写**上一轮**的库）。
+★ 会话若**同时**被两个周目引用（一个是它的 `rootSessionId`、另一个只是 timeline 里的 variant/继续）
+⇒ 判给**它是根**的那个（顺序无关）—— 否则会把一条会话判到别的角色/周目去（真机踩过）。
 
 数据根默认**指向 ST 侧现役 Anima 的数据**（`vectors/` + `data/bm25_indexes/` + `data/sessions/`）——
 即「继承现有库」而不是新建一套；本插件自己的落点只有三个文件：
