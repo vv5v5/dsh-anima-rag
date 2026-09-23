@@ -72,15 +72,17 @@ check('⑤ 摘要一行：口径统一（日志与状态端点共用）', () => 
 
 const REAL = 'D:/apps/SillyTavern-Launcher/SillyTavern/plugins/anima-rag/vectors/dsh-memory/index.json'
 if (existsSync(REAL)) {
-  check('⑥ ★真机锚：真库 51 条 ⇒ deny 正好 2 条，且与「没有 pt: 标签」的集合逐条相等', () => {
+  check('⑥ ★真机锚：真库 2 条 ⇒ deny 正好 2 条，且与「没有 pt: 标签」的集合逐条相等', () => {
     const items = JSON.parse(readFileSync(REAL, 'utf8')).items
-    // ★ 2026-09-19 重核：62 → 51。少掉的 11 条正是**孤儿回收真删掉的那批**
-    //   （10 改名孤儿 + 1 import 清单；三层一致：index/metadata 各 62→51、BM25 81→70）。
-    //   ⇒ 它们本来就在 deny 名单里，所以 deny 13 → 2（只剩 probe_1/2 两条测试残留）。
-    assert.equal(items.length, 51, '真库条数变了 ⇒ 请重核本锚的期望值')
+    // ★ 2026-09-23 重核：51 → 2。**不是代码坏，是用户自己把库清了**：白天试面板的
+    //   「删除向量库 / 删除 BM25 库」⇒ 库被改名留档（`.removed-*`）、随后只有 test 那批
+    //   （`tags:['verify']`，无 `pt:`）重新入库 ⇒ 2 条。deny 依旧是"没有 pt: 标签的全部"
+    //   ⇒ 2 条，判据本身没变。
+    // ★ 2026-09-19 重核：62 → 51（孤儿回收真删掉的那批：10 改名孤儿 + 1 import 清单）。
+    assert.equal(items.length, 2, '真库条数变了 ⇒ 请重核本锚的期望值')
     const deny = denyIndexesForPlaythrough(items, BOUND)
     const untagged = items.filter((it) => !tagsOf(it).includes(ptTagOf(BOUND))).map(sliceIndexOf)
-    assert.equal(deny.length, 2, 'deny 应正好 2 条（只剩 probe_1/2 两条测试残留；那批改名孤儿已被回收删除）')
+    assert.equal(deny.length, 2, 'deny 应正好 2 条（真库现在只有这两条 test 切片，且都没有 pt: 标签）')
     assert.deepEqual([...deny].sort(), [...untagged].sort(), 'deny 名单必须与"没本周目标签"的集合逐条相等')
     assert.equal(deny.some((x) => x.endsWith('.json')), false, '切片 index 不该带 .json')
   })

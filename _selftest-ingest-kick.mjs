@@ -165,5 +165,30 @@ check('K0 三个要看的函数都在（改了名字这条会红，提醒同步�
     '面板那处状态写入搬家了，或者 kick 里又多了一处每轮闪')
 }
 
+// ── K6 ★★ 入库那条路**不许引用作用域外的变量**（2026-09-23 真机事故：入库从来没成功过）──
+//   事故形状：`autoIngestOnce` 里写了 `source: resolved.source`，而 `resolved` 只活在
+//   `sessionSummariesDir()` / `isolationPlan()` 里 ⇒ 只要真有活干（`slices.length > 0`），
+//   走到那一行就抛 `ReferenceError: resolved is not defined`，而且是在 `insertSlices()` **之前**
+//   ⇒ **入库全挂**（真机 `ingest-state.json` 里就躺着 `"error":"resolved is not defined"`，
+//   面板上表现为"点了立即入库/压缩完也没东西进库"，一路不报错、静默）。
+//   ⚠️ 这类错 `node --check` **抓不到**（它是运行时的引用错）⇒ 只能靠这条静态判据 + 反证。
+{
+  const live = once === null ? '' : stripComments(once)
+  const usesBare = /(^|[^\w.$])resolved\./.test(live)
+  const declares = /(const|let|var)\s+resolved\s*=/.test(live)
+  check('K6 ★ autoIngestOnce 里用 `resolved.` 就必须自己声明 `resolved`（⛔ 不许引用作用域外的同名变量）',
+    !usesBare || declares,
+    usesBare && !declares ? '用了 resolved. 但函数体里没有它的声明 —— 就是 2026-09-23 那个 ReferenceError' : '')
+  check('K6b ★ 状态写入用的是**就地重算**的 `resolvedNow.source`（与 sessionSummariesDir 同一份解析）',
+    /source:\s*resolvedNow\.source/.test(live), '')
+  check('K6c ★★ 反证：把旧写法 `source: resolved.source` 重放回函数体 ⇒ K6 那句判据必红',
+    !(() => {
+      const back = live.replace(/source:\s*resolvedNow\.source/, 'source: resolved.source')
+      const bare = /(^|[^\w.$])resolved\./.test(back)
+      const decl = /(const|let|var)\s+resolved\s*=/.test(back)
+      return !bare || decl
+    })(), '')
+}
+
 console.log(`\n── ${pass} 通过 / ${fail} 失败 ──`)
 process.exitCode = fail === 0 ? 0 : 1
