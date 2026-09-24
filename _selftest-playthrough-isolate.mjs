@@ -4,8 +4,9 @@
  *
  * 用法：node _selftest-playthrough-isolate.mjs
  *
- * 最后一组是**真机锚**：拿磁盘上真实的 `vectors/dsh-memory/index.json`（2026-09-19 为 51 条）算出 deny 名单，
- * 断言 **正好 2 条被排除、且那 2 条就是「没有 pt: 标签」的那批**（原先 62/13，少掉的 11 条是孤儿回收真删的）。
+ * 最后一组是**真机锚**：拿磁盘上真实的 `vectors/dsh-memory/index.json` 算出 deny 名单，
+ * 断言 **deny 正好就是「没有本周目 pt: 标签」的那批**（条数随真库变，每次变都按「重核」注释改期望值：
+ * 62/13 → 51 → 2 → **2026-09-24：真库 4 条、deny 4 条**）。
  * 这是"隔离到底装对了没有"的硬证据 —— ⛔ 别删。
  */
 import { existsSync, readFileSync } from 'node:fs'
@@ -72,17 +73,24 @@ check('⑤ 摘要一行：口径统一（日志与状态端点共用）', () => 
 
 const REAL = 'D:/apps/SillyTavern-Launcher/SillyTavern/plugins/anima-rag/vectors/dsh-memory/index.json'
 if (existsSync(REAL)) {
-  check('⑥ ★真机锚：真库 2 条 ⇒ deny 正好 2 条，且与「没有 pt: 标签」的集合逐条相等', () => {
+  check('⑥ ★真机锚：真库 4 条（BOUND 是夹具 id，四条都不带它的标签）⇒ deny = 全部 4 条，且与「没有 pt: 标签」的集合逐条相等', () => {
     const items = JSON.parse(readFileSync(REAL, 'utf8')).items
+    // ★ 2026-09-24 重核：真库 2 → 4、deny 2 → 4。**不是代码坏，是今天这轮 RP 真的入库了** ——
+    //   多出来的两条带 `pt:playthrough-3e42826d-5ec3-4053-a6d6-6f2912c21032`（用户在玩的那个周目）；
+    //   而本台子用的 BOUND 是**夹具** id，所以这 4 条**都不带它的标签** ⇒ deny 就是全部 4 条。
+    //   （原来那 2 条是 `tags:['verify']` 的 test 批次。）判据本身没变。
     // ★ 2026-09-23 重核：51 → 2。**不是代码坏，是用户自己把库清了**：白天试面板的
     //   「删除向量库 / 删除 BM25 库」⇒ 库被改名留档（`.removed-*`）、随后只有 test 那批
     //   （`tags:['verify']`，无 `pt:`）重新入库 ⇒ 2 条。deny 依旧是"没有 pt: 标签的全部"
     //   ⇒ 2 条，判据本身没变。
     // ★ 2026-09-19 重核：62 → 51（孤儿回收真删掉的那批：10 改名孤儿 + 1 import 清单）。
-    assert.equal(items.length, 2, '真库条数变了 ⇒ 请重核本锚的期望值')
+    assert.equal(items.length, 4, '真库条数变了 ⇒ 请重核本锚的期望值')
     const deny = denyIndexesForPlaythrough(items, BOUND)
     const untagged = items.filter((it) => !tagsOf(it).includes(ptTagOf(BOUND))).map(sliceIndexOf)
-    assert.equal(deny.length, 2, 'deny 应正好 2 条（真库现在只有这两条 test 切片，且都没有 pt: 标签）')
+    // ★ 2026-09-24 重核：deny 2 → 4。BOUND 用的是**夹具**那个 id（`playthrough-adacc634-…`），
+    //   真库里 4 条（2 条 verify + 2 条本周目）**都没有**它的标签 ⇒ deny 就是全部 4 条。
+    //   判据（deny = 没有本周目标签的全部）本身没变 ⇒ 下面那条 deepEqual 照旧咬人。
+    assert.equal(deny.length, 4, 'deny 应正好 4 条（夹具 id 的标签，真库里一条都没有）')
     assert.deepEqual([...deny].sort(), [...untagged].sort(), 'deny 名单必须与"没本周目标签"的集合逐条相等')
     assert.equal(deny.some((x) => x.endsWith('.json')), false, '切片 index 不该带 .json')
   })
