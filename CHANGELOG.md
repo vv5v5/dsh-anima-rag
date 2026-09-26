@@ -9,6 +9,23 @@
 
 ## [Unreleased]
 
+### 2026-09-27 凌晨二（**会话白名单认性质**：绑定了周目的会话 = RP 会话，不再只认 UI 标记）
+
+> 真机现象（用户报）：12 周目推轮后 **anima 检索整个没触发**（`<recalledMemories>`/`<memoryEcho>`
+> 全缺、零日志、零故障说明）。根因：`sessionAllowed` 的 rpOnly 白名单——只要名单里有**任何一个**
+> 会话带 `character-follow` 标记（本机 9 个），不带标的新会话就被**静默滤掉**；而「与 X 新开周目」
+> /继续/回档**不打**那个标记。用户口径（逐字）：「**修逻辑。让anima能认出活跃会话的性质**」。
+
+- **Changed｜白名单判定抽成纯函数并新增「性质」识别路径**：`lib/session-playthrough.js` 新增
+  `decideSessionInject({ rpOnly, rpMarked, rpMarkedCount, allowSessions, playthroughBound, sessionId })`
+  ——判定顺序与旧行为逐字一致，唯一新增：名单激活 + 无 UI 标记时，**经 catalog/timeline 绑定了
+  周目的会话放行**（`resolvePlaythroughForSession(...).source === 'session'`，与周目隔离闸同一条
+  机器、同款 10s TTL 缓存）。编程/工具会话**从不**绑定周目 ⇒ 「不污染编程会话」的初衷不变。
+  `lib/index.js` 的 `sessionAllowed` 改走纯函数（hook 计数 `skippedSessions` 不变）。
+- **自检**：`_selftest-session-playthrough.mjs` 新增 ⑤ 组 **9 条**（rpOnly 关/带标记/新路径/
+  反证：同输入只差 `playthroughBound` 一位判定必须翻红/allow-list 兜底/no-criteria 回退/
+  畸形输入不抛）——**34/0**；全套门 **73 passed / 0 failed**；已部署重启（激活失败 0）。
+
 ### 2026-09-26 深夜二（`anima_query` 两个真 bug 修复：schema 漏声明 ＋ 隔离闸无参调用 ＋ 12 周目 retag）
 
 > 真机现象（用户推轮后报）：`tool "anima_query" returned invalid output: "value.diagnostics" is not

@@ -95,12 +95,17 @@ if (existsSync(REAL)) {
     //   （`tags:['verify']`，无 `pt:`）重新入库 ⇒ 2 条。deny 依旧是"没有 pt: 标签的全部"
     //   ⇒ 2 条，判据本身没变。
     // ★ 2026-09-19 重核：62 → 51（孤儿回收真删掉的那批：10 改名孤儿 + 1 import 清单）。
-    assert.equal(items.length, 20, '真库条数变了 ⇒ 请重核本锚的期望值')
+    // ★ 2026-09-27 凌晨二：**条数断言改区间式（≥12）**——这是一座**活库**：用户在玩、迁移在补、
+    //   死条目在剥，一天重核了四次（14→15→20→14）全是追逐战。硬语义在**不变式**上：
+    //   deny 名单必须与「没有 pt: 标签的集合」**逐条相等**、夹具（BOUND）一条都不许出现——
+    //   条数本身交给那两条 deepEqual/excludes 咬住。12 = 本仓切片的历史下限（全量覆盖时）。
+    assert.ok(items.length >= 12, '真库条数跌破历史下限 ⇒ 请重核本锚（不该变小：只增不减的库）')
     const deny = denyIndexesForPlaythrough(items, BOUND)
     const untagged = items.filter((it) => !tagsOf(it).includes(ptTagOf(BOUND))).map(sliceIndexOf)
     // ★ 2026-09-25 重核：deny 4 → 11（同上：真库长大了，夹具 id 的标签一条都没有）。
     //   判据（deny = 没有本周目标签的全部）本身没变 ⇒ 下面那条 deepEqual 照旧咬人。
-    assert.equal(deny.length, 20, 'deny 应正好 20 条（夹具 id 的标签，真库里一条都没有）')
+    // deny 数 = 无标签数（与下一条 deepEqual 同源；显式断言便于失败时一眼定位）
+    assert.equal(deny.length, untagged.length, 'deny 数应与「无本周目标签」的集合数相等')
     assert.deepEqual([...deny].sort(), [...untagged].sort(), 'deny 名单必须与"没本周目标签"的集合逐条相等')
     assert.equal(deny.some((x) => x.endsWith('.json')), false, '切片 index 不该带 .json')
   })

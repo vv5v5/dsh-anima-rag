@@ -12,6 +12,7 @@ import {
   playthroughIdOf, rootSessionIdOf, sessionIdsOfTimeline,
   characterIdOf, playthroughDirOf,
   buildSessionIndex, resolvePlaythroughForSession,
+  decideSessionInject,
 } from './lib/session-playthrough.js'
 
 let pass = 0
@@ -205,6 +206,38 @@ check('① rootSessionIdOf：取 ext.pmpDshTavern.rootSessionId；缺了 ⇒ 空
   } else {
     console.log(`[SKIP] ④ 真机锚：这台机器上没有 ${REAL_CATALOG}（换机/无 Tavern 时正常）`)
   }
+}
+
+// ───────── ⑤ 会话白名单判定（2026-09-27，用户口径「修逻辑。让anima能认出活跃会话的性质」）─────────
+// 真机背景：12 周目新会话被 rpOnly 白名单**静默滤掉**（检索整个不跑、零日志）——
+// 因为「与 X 新开周目」/继续/回档**不打** character-follow 标记，而名单里有别的会话带着标记。
+// 新逻辑：**看会话的性质**（catalog/timeline 绑定了周目 = RP 周目会话），不只看 UI 标记。
+{
+  const SID = 'session-x'
+  const base = { rpOnly: true, rpMarkedCount: 9, allowSessions: [], sessionId: SID }
+  check('⑤-1 rpOnly 关 ⇒ 全放行（旧行为保留）',
+    decideSessionInject({ ...base, rpOnly: false, rpMarked: false, playthroughBound: false }).allowed === true)
+  check('⑤-2 带 UI 标记 ⇒ 放行（rp-marked）',
+    decideSessionInject({ ...base, rpMarked: true, playthroughBound: false }).reason === 'rp-marked')
+  check('⑤-3 ★新路径：名单激活 + 无标记 + **绑定了周目** ⇒ 放行（playthrough-bound）',
+    decideSessionInject({ ...base, rpMarked: false, playthroughBound: true }).reason === 'playthrough-bound')
+  check('⑤-4 ★反证：同一个会话**没绑定**周目（编程/工具会话）+ 不在显式名单 ⇒ 仍拒（防污染不变）',
+    decideSessionInject({ ...base, rpMarked: false, playthroughBound: false }).allowed === false
+      && decideSessionInject({ ...base, rpMarked: false, playthroughBound: false }).reason === 'not-rp')
+  check('⑤-5 名单激活 + 无标记 + 未绑定 + 在显式名单 ⇒ 放行（allow-list 兜底保留）',
+    decideSessionInject({ ...base, rpMarked: false, playthroughBound: false, allowSessions: [SID] }).reason === 'allow-list')
+  check('⑤-6 名单为空（Tavern 未装/全无标记）⇒ 回退放行（no-criteria 旧行为保留）',
+    decideSessionInject({ rpOnly: true, rpMarked: false, rpMarkedCount: 0, allowSessions: [], sessionId: SID }).reason === 'no-criteria')
+  check('⑤-7 名单为空 + 显式名单在 ⇒ 按名单（成员放行 / 非成员拒）',
+    decideSessionInject({ rpOnly: true, rpMarked: false, rpMarkedCount: 0, allowSessions: [SID], sessionId: SID }).allowed === true
+      && decideSessionInject({ rpOnly: true, rpMarked: false, rpMarkedCount: 0, allowSessions: ['session-other'], sessionId: SID }).allowed === false)
+  // 反证咬合：⑤-3 与 ⑤-4 是同一输入只差 playthroughBound 一位 ⇒ 判据咬住的是那一位，不是别的
+  check('⑤-8 ★反证咬合：把 playthroughBound 从真改假 ⇒ ⑤-3 的判定必须翻红',
+    decideSessionInject({ ...base, rpMarked: false, playthroughBound: true }).allowed === true
+      && decideSessionInject({ ...base, rpMarked: false, playthroughBound: false }).allowed === false)
+  // 畸形输入不抛（照本仓口径）⇒ 按「无判据」回退，与旧行为逐字一致
+  check('⑤-9 畸形输入（null/空）⇒ 不抛、走 no-criteria 回退',
+    (() => { try { return decideSessionInject(null).reason === 'no-criteria' && decideSessionInject({}).reason === 'no-criteria' } catch { return false } })())
 }
 
 console.log(`\n── ${pass} 通过 / ${fail} 失败 ──`)
