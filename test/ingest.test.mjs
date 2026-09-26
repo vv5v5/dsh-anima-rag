@@ -34,7 +34,10 @@ function makeCtx() {
   return { ctx, tools, sections, handlers }
 }
 
-/** 生成一个桩引擎文件，返回它的绝对路径。mode: good | vectoronly | failing */
+/**
+ * 生成一个桩引擎文件，返回它的绝对路径。
+ * mode: good（真写向量索引）| silent（**声称成功但一个字节都不写**，反证用）| failing（引擎自己报失败）
+ */
 function makeStub(dir, mode) {
   const p = join(dir, `stub-${mode}.mjs`)
   const body = mode === 'failing'
@@ -73,7 +76,8 @@ export function createEngine({ vectorRoot, bm25Root }) {
     async listBm25() { return [] },
     async close() {},
   }
-}`
+}
+`
   writeFileSync(p, body, 'utf8')
   return p
 }
@@ -87,6 +91,11 @@ function setup(rawOverrides = {}, mode = 'good') {
     engineModule: stub,
     data: { vectorRoot: join(dir, 'vectors'), sessionRoot: join(dir, 'sessions'), bm25Root: join(dir, 'bm25') },
     embed: { key: 'test-key', url: 'http://127.0.0.1:1/v1', model: 'stub' },
+    // ⚠️ 必须把「记忆库 retrieval 覆盖」指到一个**不存在的**文件：`apply()` 会去读
+    //    `<DSH_HOME>/dsh-memory-archive/config.json` 的 `retrieval` 段并**覆盖** embed.key ——
+    //    真机上那份现在有 key ⇒ 「没 key ⇒ no-embed-key」那条守卫测的就不是空 key 了
+    //    （本测要的是**可控**取值，不是跟着本机配置走）。
+    memoryArchiveConfig: join(dir, 'no-such-memory-archive.json'),
     ...rawOverrides,
   }
   apply(ctx, raw)
@@ -228,7 +237,7 @@ test('守卫：texts 全是空白 ⇒ empty', async () => {
 
 // ─────────────────────────── 3) 真写入 + 回读核对
 
-test('真写入：两条索引都真增、verify 逐条查到、文件里真有这些 index', async () => {
+test('真写入：索引真增、verify 逐条查到、文件里真有这些 index', async () => {
   const s = setup()
   try {
     const r = await s.ingest.execute({ texts: ['第一段记忆', '第二段记忆'], tags: ['Important'], batch_id: 7, index_prefix: 'T' })
@@ -252,15 +261,13 @@ test('真写入：两条索引都真增、verify 逐条查到、文件里真有�
     const vIdx = JSON.parse(readFileSync(vf, 'utf8'))
     assert.deepEqual(vIdx.items.map((i) => i.metadata.index), ['T_1', 'T_2'])
     assert.deepEqual(vIdx.items[0].metadata.tags, ['Important'])
-    const bIdx = JSON.parse(readFileSync(bf, 'utf8'))
-    assert.deepEqual(Object.values(bIdx.storedFields).map((x) => x.index), ['T_1', 'T_2'])
   } finally { s.cleanup() }
 })
 
 test('★ 反证：桩只写向量不写 BM25 ⇒ ok=false、verify.bm25.found=0（不许误报成功）', async () => {
   const s = setup({}, 'vectoronly')
   try {
-    const r = await s.ingest.execute({ texts: ['只有向量'] })
+    const r = await s.ingest.execute({ texts: ['只声称写了'] })
     assert.equal(r.inserted, 1, '引擎自己报的是成功')
     assert.equal(r.verify.vector.found, 1)
     assert.equal(r.verify.bm25.found, 0, 'BM25 一条都没有')
@@ -326,7 +333,7 @@ test('目录读不到 ⇒ reason 说明目录读不到（不抛）', async () =>
 
 // ─────────────────────────── 5) 计数与观测面（T6）
 
-test('anima_status：写入口信息与计数如实反映（含 lastInsert 两条索引的回读数）', async () => {
+test('anima_status：写入口信息与计数如实反映（含 lastInsert 的回读数）', async () => {
   const s = setup()
   try {
     const before = await s.status.execute()

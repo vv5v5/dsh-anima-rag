@@ -81,7 +81,12 @@ function setup({ mode = 'ok', timeoutMs = 300, ingest = { enabled: true, collect
     ingest,
     summariesDir: sumDir,
     timeoutMs,
-    inject: { allowSessions: [], rpOnly: false, recentCount: 0 },
+    // ★ 2026-09-26（本轮实测修）：必须显式关掉**周目隔离**，否则 `retrieve()` 在
+    //   `isolationPlan()` 那一脚就 `blocked`（测试用的会话 id 不在 Tavern catalog 里）
+    //   ⇒ 立刻返回、**根本走不到引擎那个挂死的 query**，③④ 断言的"等满 timeoutMs"就永远不成立。
+    //   （这是 2026-09-20「会话优先 + fail-closed」之后的既有偏差，与 BM25 退役无关；本测关心的是
+    //    "同一个 turn 只等一次"这条**超时**行为，隔离是正交的 —— 用配置里给的那个开关关掉它。）
+    inject: { allowSessions: [], rpOnly: false, recentCount: 0, isolatePlaythrough: false },
   })
   const calls = () => {
     const p = join(dir, 'calls.jsonl')

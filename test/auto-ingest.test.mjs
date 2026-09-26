@@ -23,17 +23,26 @@ import { apply } from '../lib/index.js'
  * mode 直接编进桩源码（每个测试一份桩），省掉可变导出。
  */
 const stubSource = (mode) => `
-import { appendFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 const CALLS = join(dirname(fileURLToPath(import.meta.url)), 'calls.jsonl')
 const MODE = ${JSON.stringify(mode)}
-export function createEngine() {
+export function createEngine({ vectorRoot }) {
   return {
     async insert(p) {
       appendFileSync(CALLS, JSON.stringify({ collectionId: p.collectionId, index: p.index, text: p.text, tags: p.tags, batch_id: p.batch_id }) + '\\n')
       if (MODE === 'fail') return { success: false, status: 500, message: 'stub-fail' }
       if (MODE === 'hang') return new Promise(() => {})
+      // ★ 2026-09-26：成功时**真把向量索引写出来** —— insertSlices() 写完要回读核对，
+      //   找不到就 ok=false、账本不记账 ⇒ 下一轮会把同一条再写一遍（③ 就是被这个咬到的）。
+      //   改前这台桩只写 calls.jsonl，靠"没核对成功也不记账"碰巧过了 ②。
+      mkdirSync(join(vectorRoot, p.collectionId), { recursive: true })
+      const vf = join(vectorRoot, p.collectionId, 'index.json')
+      const cur = existsSync(vf) ? JSON.parse(readFileSync(vf, 'utf8')) : { items: [] }
+      cur.items = cur.items.filter((it) => String(it?.metadata?.index) !== String(p.index))
+      cur.items.push({ id: 'v' + cur.items.length, metadata: { text: p.text, tags: p.tags, timestamp: p.timestamp, index: p.index, batch_id: p.batch_id } })
+      writeFileSync(vf, JSON.stringify(cur))
       return { success: true, vectorId: 'v-' + p.index }
     },
     async query() { return { merged_chat_results: [], merged_kb_results: [] } },
@@ -42,12 +51,33 @@ export function createEngine() {
 }
 `
 
+/**
+ * ★ 2026-09-26（本轮实测修，与 BM25 退役无关）：**写侧的摘要目录是按「活跃会话的周目」解析的**
+ *   —— `sessionSummariesDir()` → `<workspaceBase>/<角色>/<周目>/archive/summaries`
+ *   （2026-09-20「会话优先」之后就**不再**回落 `summariesDir` 的字面值了）。
+ *   原来那套台子只给了 `summariesDir: <tmp>/summaries`，于是在真机上每一轮都落到
+ *   `skipped:'no-dir'` ⇒ 本文件 9 条红（**同一套用例在本机 HEAD 上同样 9 红**，A/B 验过）。
+ *   修法：造出 Tavern 的 **catalog + timeline 夹具**，并把摘要目录直接建在它指的位置上。
+ */
+const CHAR = 'c1'
+const PLAY = 'p1'
+const SESSION = 'auto-ingest-session'
+
 function setup({ auto = true, mode = 'ok', summaries = {} } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'anima-auto-'))
   const stubPath = join(dir, 'stub.mjs')
   writeFileSync(stubPath, stubSource(mode), 'utf8')
-  const sumDir = join(dir, 'summaries')
+  const ws = join(dir, 'ws')
+  const sumDir = join(ws, CHAR, PLAY, 'archive', 'summaries')
   mkdirSync(sumDir, { recursive: true })
+  writeFileSync(join(ws, 'catalog.json'), JSON.stringify({
+    playthroughs: [{
+      id: PLAY,
+      path: `${CHAR}/${PLAY}/timeline.json`,
+      ext: { pmpDshTavern: { rootSessionId: SESSION, characterId: CHAR } },
+    }],
+  }), 'utf8')
+  writeFileSync(join(ws, CHAR, PLAY, 'timeline.json'), JSON.stringify({ head: { sessionId: SESSION }, nodes: [] }), 'utf8')
   writeIndex(sumDir, summaries)
   const handlers = new Map()
   const ctx = {
@@ -69,10 +99,11 @@ function setup({ auto = true, mode = 'ok', summaries = {} } = {}) {
     // ★ `ledgerPath` 必须落在临时目录 —— 否则账本会写进**真实的** `~/.dsh/dsh-anima-rag/`（污染生产状态）
     ingest: { enabled: true, collectionId: 'dsh-memory', auto, indexPrefix: 'sum', ledgerPath: join(dir, 'ingest-ledger.json') },
     summariesDir: sumDir,
+    workspaceBase: ws,                                // ★ 写侧靠 catalog.json 认会话 → 周目
     inject: { allowSessions: [], rpOnly: false },   // 让装配钩子过白名单（本测只关心入库）
   }
   apply(ctx, config)
-  return { dir, sumDir, handlers, stubPath, config, cleanup: () => rmSync(dir, { recursive: true, force: true }) }
+  return { dir, ws, sumDir, handlers, stubPath, config, cleanup: () => rmSync(dir, { recursive: true, force: true }) }
 }
 
 /** 模拟"重启宿主"：**同一份配置**、新的 ctx 再 apply 一次 —— 账本只能靠文件续上（D12）。 */
@@ -101,7 +132,7 @@ async function assembleOnce(handlers) {
   const h = handlers.get('system-prompt/assemble')
   assert.ok(typeof h === 'function', 'assemble 钩子没注册')
   const events = [{ type: 'turn/start', seq: 1, data: { turn: 1 } }, { type: 'user/message', seq: 2, data: { content: [{ type: 'text', text: '随便一句' }], source: { kind: 'user' } } }]
-  const agent = { id: 'auto-ingest-session', session: { id: 'auto-ingest-session', snapshotEvents: () => events } }
+  const agent = { id: SESSION, session: { id: SESSION, snapshotEvents: () => events } }
   await h({ sections: [] }, { agent }, () => Promise.resolve({ sections: [] }))
 }
 
@@ -129,7 +160,9 @@ test('① 首次装配就把 index.json 里的条目写进记忆库（含 tags/i
     assert.equal(calls.length, 2, JSON.stringify(calls))
     assert.deepEqual(calls.map((c) => c.index).sort(), ['sum_s-0000-0020.md', 'sum_s-0021-0040.md'])
     assert.ok(calls.every((c) => c.collectionId === 'dsh-memory'))
-    assert.deepEqual(calls.find((c) => c.index.includes('0000')).tags, ['Suspense'])
+    // ★ 2026-09-26：条目自己的 tags（Suspense）+ 写侧按来源目录反推追加的周目标签（`pt:p1`）——
+    //   后者是 2026-09-16 就有的行为，本台子的夹具现在能解析出周目了，所以它真的出现了。
+    assert.deepEqual(calls.find((c) => c.index.includes('0000')).tags, ['Suspense', 'pt:' + PLAY])
   } finally { s.cleanup() }
 })
 
@@ -190,6 +223,7 @@ test('★ ⑤ 写失败：计入 insertErrors、装配钩子不抛、且重试�
       chatCollections: ['dsh-memory'],
       ingest: { enabled: true, collectionId: 'dsh-memory', auto: true, indexPrefix: 'sum' },
       summariesDir: s.sumDir,
+      workspaceBase: s.ws,   // ★ 同上：写侧按会话的周目解析目录，夹具必须给 catalog 所在根
       inject: { allowSessions: [], rpOnly: false },
     })
     for (let i = 0; i < 6; i += 1) {
@@ -238,7 +272,9 @@ test('★ 回归：`import-*` 批次清单不许进 <immediateHistory>（就算�
       { type: 'turn/start', seq: 1, data: { turn: 1 } },
       { type: 'user/message', seq: 2, data: { content: [{ type: 'text', text: '暗格 鳞片' }], source: { kind: 'user' } } },
     ]
-    const agent = { id: 'recent-session', session: { id: 'recent-session', snapshotEvents: () => events } }
+    // ★ 2026-09-26：会话 id 必须用夹具里那个（`SESSION`）—— 近场摘要的目录也是
+    //   **按会话的周目**解析的，随便一个 id 会得到空目录 ⇒ 断言"近场摘要应当进来"必然红。
+    const agent = { id: SESSION, session: { id: SESSION, snapshotEvents: () => events } }
     const out = await h({ sections: [] }, { agent }, () => Promise.resolve({ sections: [] }))
     const text = String((out?.sections ?? []).find((x) => x.name === 'anima:memory')?.text ?? '')
     assert.match(text, /正经的内容摘要/, '近场摘要应当进来')

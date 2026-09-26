@@ -137,7 +137,7 @@ async function main() {
   log(`  条目数: 基线 ${bM.length} | B侧 ${rM.length}`)
   log(`  完全匹配(index+长度+分数±${SCORE_TOL}): ${match}`)
   log(`  长度不符: ${lenBad} | 分数超容差: ${scoreBad} | 仅B侧: ${onlyB} | 仅基线: ${onlyA}`)
-  const pass = keysEqual && onlyA === 0 && onlyB === 0 && lenBad === 0 && scoreBad === 0 && chS.length === 0 && chB.length === 0
+  const pass = keysEqual && onlyA === 0 && onlyB === 0 && lenBad === 0 && scoreBad === 0 && chS.length === 0
   log(`  ${pass ? '✅ A/B 通过：与 ST 原版逐条一致，且零写入' : '★ 有差异，见上'}`)
 
   const sample = rM[0]

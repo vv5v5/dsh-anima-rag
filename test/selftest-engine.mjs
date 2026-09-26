@@ -1,4 +1,4 @@
-﻿/**
+/**
  * engine 自测（零安装、零 API key、对线上数据零写入）。
  *
  * 跑法：node test/selftest-engine.mjs
@@ -12,7 +12,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { createEngine } from "../lib/engine.js";
@@ -83,8 +83,8 @@ function compareSnapshots(before, after, label) {
     return ok;
 }
 
-// ========== [1] 跑前快照 + 创建引擎 ==========
-console.log("== [1] 快照 + createEngine({ 三根路径, echoPersist:false }) ==");
+// ========== [1] 选一个**真实**集合当被测库 + 装桩 fetch + 创建引擎 ==========
+console.log("== [1] 快照 + 选真库 + createEngine({ vectorRoot, sessionRoot, echoPersist:false, fetchImpl }) ==");
 const before = {
     bm25: snapshot(BM25_ROOT),
     sessions: snapshot(SESSION_ROOT),
@@ -93,6 +93,71 @@ console.log(
     `  快照完成：bm25_indexes ${before.bm25.size} 个文件，sessions ${before.sessions.size} 个文件`,
 );
 
+const vecCollections = readdirSync(VECTOR_ROOT, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && !d.name.startsWith("."))
+    .map((d) => d.name);
+check("真机有集合可测（≥ 12 个）", vecCollections.length >= 12, `实际 ${vecCollections.length}`);
+
+/**
+ * 找一台"有切片、且第一条带向量"的真集合，把它的第一条向量当**查询向量**。
+ * ★ 为什么这么干：查询向量 = 库里某条真向量 ⇒ 余弦 1.0，必然命中（且命中的是**真数据**）。
+ *   桩 fetch 只负责把这条向量按 OpenAI 形状还回去，其余链路全是真代码。
+ */
+let picked = null;
+let gapNote = null;   // 真机数据缺口：如实记一句，⛔ 不当失败
+for (const name of vecCollections) {
+    let idx = null;
+    try { idx = JSON.parse(readFileSync(join(VECTOR_ROOT, name, "index.json"), "utf8")); } catch { continue; }
+    const items = Array.isArray(idx?.items) ? idx.items : [];
+    if (items.length === 0) continue;
+    // ⚠️ 真机实测（2026-09-26）：`dsh-memory` 的 `index.json` 里列着 12 条，但磁盘上只有 6 个
+    //    per-item 元数据文件。**vectra 查询时要读那几条元数据** —— 读不到就 ENOENT，
+    //    整个 queryMultiIndices 崩掉、返回 0 条（那几条切片**永远召不回**）。
+    //    ⇒ 本测只挑**元数据齐全**的集合；不齐的那个如实记一句就跳过（那是数据缺口，
+    //      不是引擎/本次退役的问题 —— 退役前也一样）。
+    const usable = items.filter((it) =>
+        Array.isArray(it?.vector) && it.vector.length > 0 &&
+        typeof it?.metadataFile === "string" && it.metadataFile !== "" &&
+        existsSync(join(VECTOR_ROOT, name, it.metadataFile)));
+    if (usable.length < items.length) {
+        gapNote = gapNote ?? { name, items: items.length, ok: usable.length };
+        continue;
+    }
+    picked = {
+        collection: name,
+        vector: usable[0].vector,
+        dim: usable[0].vector.length,
+        index: usable[0].metadata?.index ?? "(无 index)",
+        items: items.length,
+    };
+    break;
+}
+if (picked === null) {
+    console.log("\n===== SELFTEST FAIL：真机里找不到「元数据齐全、有向量的集合」，无法真跑向量路径 =====");
+    process.exit(1);
+}
+if (gapNote !== null) {
+    console.log(`  [i] 真机数据缺口（如实记，⛔ 不是本次退役引入的）：「${gapNote.name}」索引里 ${gapNote.items} 条，`
+        + `只有 ${gapNote.ok} 条的 per-item 元数据文件在盘上 —— vectra 查询要读它，读不到就 ENOENT ⇒ 那几条召不回。`);
+}
+console.log(`  ★ 被测真库「${picked.collection}」：${picked.items} 条（元数据齐全）· 维度 ${picked.dim}`);
+console.log(`     取第一条的向量当查询向量（index=${picked.index}）`);
+
+/** 桩 fetch：只认 `/embeddings`，按 OpenAI 形状返回上面那条真向量；别的一律报错（⛔ 不静默）。 */
+let embedCalls = 0;
+const stubFetch = async (url, init) => {
+    const u = String(url);
+    if (!u.endsWith("/embeddings")) {
+        return { ok: false, status: 404, text: async () => `stub-fetch: 不认的端点 ${u}`, json: async () => ({ error: { message: "stub 404" } }) };
+    }
+    embedCalls += 1;
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    if (typeof body?.input !== "string" || body.input === "") {
+        return { ok: false, status: 400, text: async () => "stub: input 空", json: async () => ({ error: { message: "input missing" } }) };
+    }
+    return { ok: true, status: 200, json: async () => ({ data: [{ embedding: picked.vector }] }) };
+};
+
 const engine = createEngine({
     vectorRoot: VECTOR_ROOT,
     sessionRoot: SESSION_ROOT,
@@ -100,6 +165,7 @@ const engine = createEngine({
     echoPersist: false, // 回响照常计算，落盘变 no-op
     bm25Persist: false, // BM25 同样只读（查询路径本就不写盘，双保险）
     depsBase: DEPS_BASE,
+    fetchImpl: stubFetch, // 向量那一路的嵌入用桩（返回真向量，零联网）；BM25 不需要它
     logger: console,
 });
 console.log("  createEngine 完成（vectra/minisearch/jieba 均经 DEPS_BASE 解析，未装包）");
@@ -153,9 +219,11 @@ console.log("\n== [4] engine.query() —— BM25 支线真跑（无 key） ==");
 const baseline = JSON.parse(
     readFileSync(new URL("./baseline-st-response.json", import.meta.url), "utf8"),
 );
-const EXPECTED_TOP_KEYS = Object.keys(baseline).sort();
+// 基线是**ST 原版**的响应（7 键，含 BM25 两键）；本仓引擎另加一个 `_diag`（维度核对）⇒ 期望键 = 基线键 + `_diag`。
+const EXPECTED_TOP_KEYS = [...Object.keys(baseline), "_diag"].sort();
 const BASELINE_MERGED_KEYS = Object.keys(baseline.merged_chat_results[0]).sort();
-console.log(`  基线顶层 7 键: ${EXPECTED_TOP_KEYS.join(", ")}`);
+console.log(`  基线顶层键: ${Object.keys(baseline).sort().join(", ")}`);
+console.log(`  本引擎期望顶层键: ${EXPECTED_TOP_KEYS.join(", ")}`);
 console.log(`  基线 merged_chat[0] 键: ${BASELINE_MERGED_KEYS.join(", ")}`);
 
 const payload = {
@@ -167,7 +235,7 @@ const payload = {
     sessionId,
     is_swipe: false,
     rerankConfig: { enabled: false, api: { key: "", url: "http://127.0.0.1:1", model: "x" } },
-    chatContext: { ids: [collections[0]], strategy: null },
+    chatContext: { ids: [picked.collection], strategy: null },
     kbContext: { ids: [], strategy: null },
     bm25Configs: {
         chat_top_k: 3,
@@ -185,7 +253,7 @@ const result = await engine.query(payload);
 // --- 4a. 顶层键集合与基线完全一致 ---
 const resultTopKeys = Object.keys(result).sort();
 check(
-    "query() 顶层键集合与基线 7 键完全一致",
+    "query() 顶层键 = 基线 7 键 + `_diag`（两边的键一个不多一个不少）",
     JSON.stringify(resultTopKeys) === JSON.stringify(EXPECTED_TOP_KEYS),
     `实际 [${resultTopKeys.join(", ")}]`,
 );
@@ -242,15 +310,31 @@ const echoLogsCount = (result._debug_logs || []).filter((l) => l.step === "Echo"
 console.log(`  _debug_logs 共 ${(result._debug_logs || []).length} 条，其中 Echo 步骤 ${echoLogsCount} 条（回响已照常计算）`);
 check("回响状态机照常运行（Echo 日志存在）", echoLogsCount > 0);
 
-// ========== [5] 无 key 时向量支线的行为 ==========
-console.log("\n== [5] 无 key + searchText 非空 → 向量支线行为 ==");
+// --- 4c. `_diag` 如实回填：这一轮 searchText 留空 ⇒ 没跑向量 ⇒ query 如实是 null
+check("`_diag` 存在且如实（本轮没跑向量 ⇒ query=null）", !!result._diag && result._diag.query === null, JSON.stringify(result._diag));
+
+// ========== [4b] 向量支线真跑（桩 fetch 返回真向量；T1 `_diag` 的维度核对） ==========
+console.log("\n== [4b] engine.query() —— 向量支线真跑（真库真向量，零联网） ==");
+const result2 = await engine.query({
+    ...payload,
+    searchText: "user: 随便问一句（桩只负责把真向量还回去）",   // 非空 ⇒ 走 embedding（桩）
+    bm25SearchText: "",                                        // ⛔ 隔离向量路：这轮不给 BM25 检索词
+    bm25Configs: { chat: [], kb: [] },                         //   也不给词典 ⇒ 两条 BM25 任务直接早退
+    apiConfig: { key: "stub-key", url: "http://127.0.0.1:1", model: "stub-model" },
+});
+check("`_diag` 带上查询向量维度（= 真库那条的维度）", result2._diag?.query === picked.dim, JSON.stringify(result2._diag?.query));
+check("向量支线真命中（merged ≥ 1 条）", result2.merged_chat_results.length > 0, `实得 ${result2.merged_chat_results.length}`);
+check("BM25 两键仍在返回里（这轮没给词典 ⇒ 空数组）", Array.isArray(result2.bm25_chat_results) && result2.bm25_chat_results.length === 0,
+    `实得 ${JSON.stringify(result2.bm25_chat_results)}`);
+
+// ========== [4] 无 key 时向量支线的行为 ==========
+console.log("\n== [4] 无 key + searchText 非空 → 抛错（不静默） ==");
 try {
     await engine.query({
         ...payload,
         searchText: "你好",
         bm25SearchText: "",
         sessionId: undefined, // 不走回响，聚焦向量支线报错路径
-        chatContext: { ids: [collections[0]], strategy: null },
     });
     console.log("  [FAIL] 未抛错（不该发生：getEmbedding 应因缺 key 失败）");
     failures++;
@@ -261,8 +345,8 @@ try {
     check("附带 httpStatus=500（对应原版 500 响应）", e?.httpStatus === 500);
 }
 
-// ========== [6] 零写入断言 ==========
-console.log("\n== [6] 零写入断言（文件数 + mtime + SHA256 逐文件比对） ==");
+// ========== [5] 零写入断言 ==========
+console.log("\n== [5] 零写入断言（文件数 + mtime + SHA256 逐文件比对） ==");
 const after = {
     bm25: snapshot(BM25_ROOT),
     sessions: snapshot(SESSION_ROOT),

@@ -73,8 +73,19 @@ check('⑤ 摘要一行：口径统一（日志与状态端点共用）', () => 
 
 const REAL = 'D:/apps/SillyTavern-Launcher/SillyTavern/plugins/anima-rag/vectors/dsh-memory/index.json'
 if (existsSync(REAL)) {
-  check('⑥ ★真机锚：真库 4 条（BOUND 是夹具 id，四条都不带它的标签）⇒ deny = 全部 4 条，且与「没有 pt: 标签」的集合逐条相等', () => {
+  check('⑥ ★真机锚：真库 20 条（BOUND 是夹具 id，二十条都不带它的标签）⇒ deny = 全部 20 条，且与「没有 pt: 标签」的集合逐条相等', () => {
     const items = JSON.parse(readFileSync(REAL, 'utf8')).items
+    // ★ 2026-09-27 凌晨重核：真库 15 → 20（迁移收尾：撕裂索引修好后补入库 5 份
+    //   mt-0197-0260-1/-2、mt-0261-0262、mt-0263-0266、mt-0267-0268，全部 retag 成
+    //   pt:playthrough-ceda5fb5（12 周目））＋ 2 条 probe 夹具 —— 逐条核过 tags：
+    //   20 条**都不带**夹具 id 的标签 ⇒ deny 仍是"全部"。判据没变。
+    // ★ 2026-09-27 重核：真库 14 → 15（修好撕裂索引后，此前失败的 mt-0141-0196-1 补入库）＋ 12 周目 retag（pt:ceda5fb5 ×13）。
+    // ★ 2026-09-26 晚重核：真库 12 → 14（用户当晚在玩，十周目 mt-0141-0196 系入库 2 条）——
+    //   逐条核过 tags：14 条**都不带**夹具 id（playthrough-adacc634）的标签 ⇒ deny 仍是"全部"。判据没变。
+    // ★ 2026-09-26 重核：真库 11 → 12（用户 00:38 又入库一条）—— 判据没变。
+    // ★ 2026-09-25 重核：真库 4 → 11、deny 4 → 11。**不是代码坏，是用户这两天真的在玩** ——
+    //   期间的收纳/入库又落了 7 条；本台子用的 BOUND 是**夹具** id，这一批**都不带它的标签**
+    //   ⇒ deny 仍是"全部"。判据本身（deny = 没有本周目标签的全部）一字未动。
     // ★ 2026-09-24 重核：真库 2 → 4、deny 2 → 4。**不是代码坏，是今天这轮 RP 真的入库了** ——
     //   多出来的两条带 `pt:playthrough-3e42826d-5ec3-4053-a6d6-6f2912c21032`（用户在玩的那个周目）；
     //   而本台子用的 BOUND 是**夹具** id，所以这 4 条**都不带它的标签** ⇒ deny 就是全部 4 条。
@@ -84,13 +95,12 @@ if (existsSync(REAL)) {
     //   （`tags:['verify']`，无 `pt:`）重新入库 ⇒ 2 条。deny 依旧是"没有 pt: 标签的全部"
     //   ⇒ 2 条，判据本身没变。
     // ★ 2026-09-19 重核：62 → 51（孤儿回收真删掉的那批：10 改名孤儿 + 1 import 清单）。
-    assert.equal(items.length, 4, '真库条数变了 ⇒ 请重核本锚的期望值')
+    assert.equal(items.length, 20, '真库条数变了 ⇒ 请重核本锚的期望值')
     const deny = denyIndexesForPlaythrough(items, BOUND)
     const untagged = items.filter((it) => !tagsOf(it).includes(ptTagOf(BOUND))).map(sliceIndexOf)
-    // ★ 2026-09-24 重核：deny 2 → 4。BOUND 用的是**夹具**那个 id（`playthrough-adacc634-…`），
-    //   真库里 4 条（2 条 verify + 2 条本周目）**都没有**它的标签 ⇒ deny 就是全部 4 条。
+    // ★ 2026-09-25 重核：deny 4 → 11（同上：真库长大了，夹具 id 的标签一条都没有）。
     //   判据（deny = 没有本周目标签的全部）本身没变 ⇒ 下面那条 deepEqual 照旧咬人。
-    assert.equal(deny.length, 4, 'deny 应正好 4 条（夹具 id 的标签，真库里一条都没有）')
+    assert.equal(deny.length, 20, 'deny 应正好 20 条（夹具 id 的标签，真库里一条都没有）')
     assert.deepEqual([...deny].sort(), [...untagged].sort(), 'deny 名单必须与"没本周目标签"的集合逐条相等')
     assert.equal(deny.some((x) => x.endsWith('.json')), false, '切片 index 不该带 .json')
   })

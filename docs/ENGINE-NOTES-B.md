@@ -4,6 +4,13 @@
 目标：`lib/engine.js`（`createEngine(options)` 工厂，零 express、零 `__dirname`、不读 config.yaml）。
 性质：**纯搬运**。除下文「边界改动」三条外，算法、阈值、日志文案逐字一致。
 
+> ★★ 2026-09-26（T3）：**BM25（minisearch）第二轨已整条退役**（用户口径「fts5目前看用处不大，摘除吧」）。
+> 上游 `router.get("/bm25/list")` 与 `/query` 里的 `bm25ChatTask` / `bm25KbTask` **本仓不再有对应物**；
+> `lib/bm25.js`、`options.bm25Root`、`bm25Configs` payload、`bm25_chat_results` / `bm25_kb_results`
+> 两个返回键、以及 `minisearch` / `jieba-wasm` 两个依赖**全部删除**。
+> 下面表格与第四、五节里凡带 BM25 的行，都是**搬运当时的历史记录**（保留作上游对照），⛔ 不是现状 ——
+> 现状是**向量单轨**。
+
 ## 一、逐块映射表（源行号 → engine.js）
 
 | 源 index.js | 内容 | 去处 |
@@ -27,7 +34,7 @@
 | 1244-1280 | `init()` 读 ST `config.yaml` 代理 | **不搬** |
 | 1282-1461 | `router.post("/insert")` | `insert(payload)`：函数体逐字照搬；`req.body`→`payload`；`res.status(400/500).json`→返回 `{success,status,message}`（文案逐字一致）；仍走每集合串行队列 |
 | 1631-1645 | `router.get("/list")` | `listCollections()`（逐字照搬） |
-| 1647-1667 | `router.get("/bm25/list")` | `listBm25()` → `lib/bm25.js` 的 `list()`（同一逻辑的 A 部分收敛版） |
+| 1647-1667 | `router.get("/bm25/list")` | ~~`listBm25()` → `lib/bm25.js` 的 `list()`~~ **2026-09-26 退役**（连同 `lib/bm25.js` 一起删） |
 | 2256-3167 | `router.post("/query")` 主流程 | `query(payload)`：早退分支、会话 GC/Swipe 预处理、chatTask/kbTask/bm25ChatTask/bm25KbTask、BM25 user:/context 分池、时间意图雷达、TF 加权（context×1 / user×3）、意图 999 分拦截、`mergedMap` 去重（`index||id`）、`Promise.all`、回响集成（复用 `_echo_pool`、动态 impTags、`formatEchoLogs`）、chat 终排（timestamp→batch→slice）、`formatResults`（12 字段）、`mergeAndSortChat`（键 `index||id`）/`mergeAndSortKb`（键 `id || doc_name+chunk_index`）、7 键返回对象 —— 全部逐字照搬 |
 | 其余路由 | /test_connection、/delete_collection、/export_collection、/bm25/*、/proxy/forward 等 | **不搬**（非检索核心；/proxy/forward 明确不要） |
 
@@ -40,14 +47,18 @@
 4. express 路由壳与其余 13 个路由 —— 超出检索核心范围。
 
 **改动（全部为参数化/传输层适配，算法零改动）**
-1. 三根路径参数化：`__dirname` 计数 **0**（grep 已验证）。
+1. 两根路径参数化：`__dirname` 计数 **0**（grep 已验证）。
+   （原是三根 —— `bm25Root` 随 2026-09-26 的 BM25 退役删。）
 2. `console.*` → `options.logger`（默认 console，文案逐字）。
-3. vectra / minisearch / jieba-wasm 经 `createRequire(options.depsBase)` 按裸包名解析（不装包）。
-4. 回响持久化：`sessions.save` 透传 `echoPersist:false` → `createSessionStore(root,{persist:false})` 彻底 no-op；回响**计算**路径一行未动（`is_echo` 语义不变）。另加 `bm25Persist`（默认 true）透传 `createBm25`，只影响 BM25 写盘开关，查询路径本就不写。
+3. vectra 经 `createRequire(options.depsBase)` 按裸包名解析（不装包）。
+   ~~minisearch / jieba-wasm 走同一条路~~ —— 2026-09-26 随 BM25 退役删（两个依赖也已从 `package.json` 摘掉）。
+4. 回响持久化：`sessions.save` 透传 `echoPersist:false` → `createSessionStore(root,{persist:false})` 彻底 no-op；回响**计算**路径一行未动（`is_echo` 语义不变）。
+   ~~另加 `bm25Persist`（默认 true）透传 `createBm25`~~ —— 2026-09-26 随 BM25 退役删。
 5. 边界改动（传输层）：
    - `/query` 的 `catch`（:3160-3166）原 `res.status(500).json` → **抛错** `Error`，带 `.code="ANIMA_QUERY_FAILED"`、`.httpStatus=500`、`.success=false`，message 仍为 `err.message || "Unknown Query Error"`（任务口径：无 key 时优雅失败并留痕）。
    - `/insert` 的 400/500 JSON → 返回 `{success:false,status,message}`，文案逐字一致；成功返回 `{success:true,vectorId}` 不变。
    - 早退分支 `if (!searchText && !bm25SearchText)`（:2285-2286）**逐字保留**原版旧形状 `{ chat_results: [], kb_results: [] }`（仅 2 键）——这是原版行为，未"修复"成 7 键，调用方需知。
+     ★ 2026-09-26：判据收成 `if (!searchText)`（`bm25SearchText` 这个 payload 键已随 BM25 退役删）；2 键返回形状**一字未动**。
 6. 防禁词 grep 误报：搬运代码里原版的循环变量 `res`（`results.map((res) => …)` 等 84 处局部绑定）整体改名 `entry`，纯改名零语义变化；注释中的 `res.json` 等字面量也已改述。
 7. `chatTask` 里 `strat.searchText = searchText; strat.rerankConfig = rerankConfig` 会**原地改写入参 strategy 对象**——原版对 `req.body.strategy` 同样如此，保留，未改为克隆。
 
@@ -55,14 +66,19 @@
 
 1. **向量支线未在有 key 环境下验证**：`getEmbedding` / `fetchRerank` / `queryIndexSafe`(vectra 查询) / `performDynamicStrategy` / 回响"自然命中+回响成功"分支，本环境无 key 跑不到真实向量路径。已由自测覆盖的仅有：无 key 时抛 `API Key missing`（与原版文案一致）。后续 `ab-compare.mjs` 设 `ANIMA_RAG_EMBED_KEY` 对打时请重点看 `merged_chat_results` 的 index/text 长度。
 2. vectra 补丁假设：自测环境用的是 ST 线上 `node_modules`（已打 `patches/vectra+0.12.3.patch`），元数=4 分支生效；换运行时若 vectra 未打补丁，`queryIndexSafe` 会静默走 3 参分支（原版行为一致，非搬运引入）。
-3. 基线形状断言的口径：基线 `merged_chat_results[0]`（10 键）是**向量条目**经 HTTP JSON 固化的形状（`rerank_score/chunk_index/doc_name` 为 undefined 被丢弃）。无 key 自测下 merged 里只可能是 **BM25 条目**，其 16 键（含 MiniSearch 原生的 `match/queryTerms/terms` 与平铺的 `_source_db` 等）与原版服务端同路径产物一致；自测对两种条目分别按各自规范键集断言，并打印实测键集。
-4. `close()` 仅清进程内缓存（activeIndexes / loadingPromises / bm25.activeIndexes）；`createQueue` 无清理口（原实现从不清 key，A 部分保持一致），未等待中的队列任务语义与原版相同。
+3. 基线形状断言的口径：基线 `merged_chat_results[0]`（10 键）是**向量条目**经 HTTP JSON 固化的形状（`rerank_score/chunk_index/doc_name` 为 undefined 被丢弃）。
+   ~~无 key 自测下 merged 里只可能是 **BM25 条目**（16 键，含 MiniSearch 原生的 `match/queryTerms/terms` 与平铺的 `_source_db`），自测对两种条目分别按各自规范键集断言~~ —— 2026-09-26 退役：自测改成给引擎注入一个**桩 fetch**（返回库里真实存在的一条向量）来真跑向量路径，merged 里只剩向量条目，断言按基线键集逐条比。
+4. `close()` 仅清进程内缓存（~~activeIndexes / loadingPromises / bm25.activeIndexes~~ → 现在只有 activeIndexes / loadingPromises；BM25 那份缓存 2026-09-26 随退役删）；`createQueue` 无清理口（原实现从不清 key，A 部分保持一致），未等待中的队列任务语义与原版相同。
 
 ## 四、自测结果（test/selftest-engine.mjs，全部 PASS）
 
-- `listCollections()` = 12，`listBm25()` = 11；
-- BM25 支线真跑（无 key，searchText 空）：触发词「公职人员」/index「9_3」/库「影子_-0903」→ `bm25_chat_results` 3 条（2_2 / 7_3 / 9_3，含 TF×3 加权 48.83）；
-- 顶层 7 键与基线完全一致；条目键集对照通过；
+> ⚠️ **本节是 2026-09-11 的历史快照**（当时 BM25 还在）。其中 BM25 那几条在今天已经不成立：
+> `listBm25()` 已删、`bm25_chat_results` 已删、`data/bm25_indexes` 不再是我们的数据根。
+> 现行自测见文件尾部的「六、2026-09-26（T3）退役后的自测现状」。
+
+- `listCollections()` = 12，~~`listBm25()` = 11~~；
+- ~~BM25 支线真跑（无 key，searchText 空）：触发词「公职人员」/index「9_3」/库「影子_-0903」→ `bm25_chat_results` 3 条（2_2 / 7_3 / 9_3，含 TF×3 加权 48.83）~~（2026-09-26 退役：那条支线与这个键都不在了）；
+- 顶层 7 键与基线完全一致；条目键集对照通过；（退役后为 6 键：少 `bm25_chat_results` / `bm25_kb_results`）
 - 无 key + searchText 非空 → 抛 `code=ANIMA_QUERY_FAILED, message="API Key missing"`，未静默；
 - 零写入：`data/bm25_indexes` 11/11、`data/sessions` 14/14 文件 数量+ mtime + SHA256 逐文件未变（回响照常计算，Echo 日志 9 条）。
 
@@ -79,7 +95,7 @@
 |---|---|---|
 | 顶层键数 | 7 | 7（**键集合完全一致**） |
 | `vector_chat_results` | 5 | 5 |
-| `bm25_chat_results` | 0 | 0 |
+| ~~`bm25_chat_results`~~（2026-09-26 退役删键） | 0 | 0 |
 | `merged_chat_results` | 5 | 5 |
 | `_debug_logs` | 11 | 11 |
 
@@ -110,12 +126,28 @@
 ### 5.2 第三节「边界改动 5（早退分支 2 键）」——补充两句
 
 早退分支（`index.js:2285-2286`）保留原版 2 键 `{chat_results:[],kb_results:[]}` 的处置**已拍板选 A（保持原版）**。
-补两句：**属原版行为而非缺陷**；且 **DSH 调用方 `lib/index.js` 的 `retrieve()` 在两检索词同时为空时短路返回**，
-该分支在生产路径上不可达，不影响 7 键契约的整齐度。
+补两句：**属原版行为而非缺陷**；且 **DSH 调用方 `lib/index.js` 的 `retrieve()` 在检索词为空时短路返回**
+（退役后判据只剩 `searchText` 一个），该分支在生产路径上不可达，不影响返回键契约的整齐度。
 
-### 5.3 一处无害告警（记录备查）
+### 5.3 一处无害告警（记录备查；2026-09-26 起不可能再出现）
 
 真跑 stderr 出现 `[Anima BM25] ⚠️ 库不存在，跳过: undefined`。原因是 payload 的
 `bm25Configs.chat[0].dictionary` 是空数组（用户 ST 侧的 BM25 触发词典尚未导出）。
 BM25 支线两侧均返回 0 条、与原版一致，**不影响结果**。
-待补：把用户的 BM25 词典（`bm25_settings.bound_dict` / `dict_mapping`）导出后，BM25 支线才会真正工作。
+★ 2026-09-26：这条告警来自 BM25 支线，那条支线已整条退役 ⇒ **该告警与"待补的词典"一并作废**
+（`bm25Configs` 这个 payload 键都不存在了）。
+
+---
+
+## 六、2026-09-26（T3）退役后的自测现状
+
+- `test/selftest-engine.mjs`：`createEngine({vectorRoot, sessionRoot, echoPersist:false, fetchImpl})`，
+  用**桩 fetch** 返回真实库里已有的一条向量 ⇒ 真跑 `getEmbedding → getVector` 这条向量路径
+  （无 key、零联网、对线上数据零写入），断言：返回键集合 = 基线键集 − BM25 两键 + `_diag`、
+  `merged_chat_results` 条目键集与基线一致、向量命中 ≥ 1 条、回响日志存在、无 key 时抛
+  `code=ANIMA_QUERY_FAILED / message="API Key missing"`、`data/sessions` 与旧 `data/bm25_indexes`
+  目录**零写入**（后者只作"退役后我们连碰都不碰它"的只读锚）。
+- `test/selftest-bm25.mjs` 已删；`_selftest-anima-delete-mechanics.mjs` 改测**向量**删除机制
+  （vectra `deleteItem` + per-item 元数据文件），保留"拿错 id ⇒ 必须什么都没删"的反证。
+- 全量门 `_run-all-selftests.mjs` 里那几台 `_selftest-*.mjs` 已同步（`_selftest-orphan-reconcile.mjs`
+  去掉了 `bm25IdsForIndexes` 与真机 bm25 锚；`_selftest-panel-request.mjs` 的动作白名单变 3 个）。

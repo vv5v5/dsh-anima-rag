@@ -107,8 +107,8 @@ const isoPart = { enabled: true, bound: 'playthrough-x', total: 51, denyIndexes:
   check('⑤ dataRoots 三个根都在（面板靠它自己现算易变项）',
     info.dataRoots.vectorRoot === 'V' && info.dataRoots.bm25Root === 'B' && info.dataRoots.sessionRoot === 'S')
   const bare = makeVectorInfo()
-  check('⑤ 全空调用也不抛，且三根是空串（⛔ 不编路径）',
-    bare.dataRoots.vectorRoot === '' && bare.collectionId === '' && bare.isolation === null)
+  check('⑤ 全空调用也不抛，且两根是空串（⛔ 不编路径）',
+    bare.dataRoots.vectorRoot === '' && bare.dataRoots.sessionRoot === '' && bare.collectionId === '' && bare.isolation === null)
 }
 
 console.log(`\n── ${pass} 通过 / ${fail} 失败 ──`)

@@ -1,0 +1,3398 @@
+  语料候选：影子 -0906重开.jsonl(50)、影子 -0903.jsonl(20)
+本机夹具：{"DSH_ST_CHAT":"影子 -0906重开.jsonl","DMA_PRESET_SRC":"ok","DMA_CORPUS_FLOORS":"ok"}
+PASS ① 状态文件不存在 ⇒ HTTP 200 + ok:true + state:null（提示条据此不显示）
+PASS ② 收纳中：running=true 且 startedAt/pending/playthroughId 如实投影
+PASS ② ★反证：只投影白名单字段 —— 原始文件里的 `dir`/`乱塞` 一个字都不许进响应（⛔ 不吐路径）
+PASS ③ 跑完：running=false、finishedAt/inserted/failed 如实给
+PASS ④ ★反证：坏类型不猜（running 只认严格 true；数字位给 null；error 给 null）
+PASS ⑤ ★反证：文件坏掉 ⇒ ok:false + ANIMA_STATE_READ_FAILED（不假装成空态）
+
+── 6 通过 / 0 失败 ──
+  ✔ _selftest-anima-state.mjs
+PASS node --check lib/index.js
+PASS node --check lib/collect-scan.js
+PASS registerAutoCollect 已导出（自检注入面）
+PASS ★ decideAutoCollect 已导出（判据纯函数，台子直测）
+PASS 1a 压缩阶段不立刻收（pending 而已）
+PASS 1b ★ 轮末收**一次**（三次压缩不重复收）
+PASS 1c 再一个轮末 ⇒ 不再收（pending 用完即弃）
+PASS 2a 没压缩过的轮末一次都不收
+PASS 3a A 的轮末只收 A
+PASS 3b B 的轮末只收 B
+PASS 4a 开关关掉 ⇒ 一次都不收
+PASS 4b 打开后恢复
+PASS 4c 压缩成功那一刻不立刻收（是延迟，不是同步）
+PASS 4d ★ 延迟到点 ⇒ 收了一次（手动压缩也能落库）
+PASS 4e 之后真有轮末也不重复收（pending 已用掉）
+PASS 4f ★ 反证：压缩失败（end 带 error）⇒ 不收
+PASS 4g ★ 轮末先收 ⇒ 延迟器不再补收（一次压缩只落一次）
+PASS 4h 反证：没压过（没有 summary）⇒ 光 end 不收
+    · ①catalog 的 rootSessionId（原行为） [session-8f20049b-1b1e-4a2c-9d3f-0f1a2b3c4d5e] ⇒ 放行（往下走到取基址：NO_SELF_BASE）
+PASS 5 ★ ①catalog 的 rootSessionId（原行为） ⇒ 放行
+    · ②★ 续接会话（timeline 的 head，本单要修的） [session-4c737d46-57bc-42fe-8df5-248cb9a62e1f] ⇒ 放行（往下走到取基址：NO_SELF_BASE）
+PASS 5 ★ ②★ 续接会话（timeline 的 head，本单要修的） ⇒ 放行
+    · ③认不出周目（新会话 / 编程会话） [session-9f9f9f9f-1111-2222-3333-444444444444] ⇒ 拒绝（session-playthrough-unknown（这条会话认不出属于哪个周目：Tavern 的 catalog.json 与各周目 timeline.json 里都没有它 —— 新会话，或还没被 Tavern 归入周目的会话））
+PASS 5 ★ ③认不出周目（新会话 / 编程会话） ⇒ 被拒
+    · ④属于另一个周目 [session-bbbbbbbb-1111-2222-3333-444444444444] ⇒ 拒绝（other-playthrough（这条会话属于另一个周目：本会话 = char-bbbb-0000-1111-2222-333333333333/playthrough-bbbb-9999-8888-7777-666666666666，目标周目 = 70a0502d-b4e9-472f-8d5a-1c7b32b2e7ac/playthrough-f2d3547f-75ca-4328-af74-fb3e39bb8527））
+PASS 5 ★ ④属于另一个周目 ⇒ 被拒
+PASS 5a ★ ①/② 放行后走的是取基址那一步（不是 skipped）
+PASS 5b ★ ③ 认不出 ⇒ 新文案 session-playthrough-unknown（⛔ 不再是只说 catalog 的 bound-session-unknown）
+PASS 5c ★ ④ 属于另一个周目 ⇒ 新文案 other-playthrough，且**两边周目 id 都带上**
+PASS 5d ★ 三条拒绝文案**互不相同**（用户要能区分"没设目标" / "认不出" / "是另一个周目"）
+PASS 5e 跳过时**一个字都没写进周目目录**（不是失败，也不碰档案）
+PASS 5f ★ 被拒的那两条 **不算失败**（ok:true ⇒ 面板不该为它们报红）
+PASS 5g ★ 读不到 catalog ⇒ 同样算"认不出周目"（同一句话；⛔ 不因为读不到就放行）
+PASS 5h 工作区根放回来 ⇒ 续接会话又放行（夹具没被这一步弄坏）
+PASS 6a 相：hit == target ⇒ 放行
+PASS 6b 相：放行时不带 reason（调用方只读被拒那条的 reason）
+PASS 6c ★ 反证：hit 是 null ⇒ 拒（认不出周目）
+PASS 6d ★ 反证：hit 只有 characterId 没有 playthroughId（半截）⇒ 也拒（⛔ 不半信半疑地放行）
+PASS 6e ★ 反证：周目同、角色不同 ⇒ 拒（两半都要对得上）
+PASS 6f ★ 反证：target 空 / null / 半截 ⇒ no-bound-target（原样保留旧文案）
+PASS 6g ★ 优先级：target 与 hit **都**空 ⇒ 报 no-bound-target（用户先要看到的是"去设置里选"）
+PASS 6h ★ 反证：**旧判据**（只认 `ids.has(sessionId)`）在这四类上判错第 2 类 —— 它把续接会话拒了
+PASS 7a ★ 失败被如实记下（ok:false）——失败不许静默
+PASS 7b ★ 带可读 code（面板顶栏红标显示它）
+PASS 7c ★ 过门后卡在取基址 ⇒ code = NO_SELF_BASE（确定，不再是"几个之一"）
+PASS 7d 状态里有时间与目标（播报要能说清什么时候、对哪个周目）
+PASS 8a 跳过那条：字段齐（at/ok/skipped/sessionId/target/reason）
+PASS 8b ★ 会话 id **截短**落盘（状态文件不该是又一份会话清单）
+PASS 8c ★ 状态里不含**工作区路径**、也不含正文（判词是一行，不是内容转储）
+PASS 9a 反证夹具就位：副本里那两处确实改回旧写法（原文件一字未动）
+    · 旧判据 [session-8f20049b-1b1e-4a2c-9d3f-0f1a2b3c4d5e] ⇒ 放行（NO_SELF_BASE）
+    · 旧判据 [session-4c737d46-57bc-42fe-8df5-248cb9a62e1f] ⇒ 拒绝（not-bound-session（这个会话不属于绑定的周目））
+    · 旧判据 [session-9f9f9f9f-1111-2222-3333-444444444444] ⇒ 拒绝（not-bound-session（这个会话不属于绑定的周目））
+    · 旧判据 [session-bbbbbbbb-1111-2222-3333-444444444444] ⇒ 拒绝（not-bound-session（这个会话不属于绑定的周目））
+PASS 9b ★ 反证①：旧写法下 **catalog 的 rootSessionId 仍放行**（回归项没被冤枉）
+PASS 9c ★★ 反证②：旧写法下 **续接会话被拒** ⇒ 这就是真机事故（第 5 节能放行它，靠的正是本单改的那一处判据）
+PASS 9d ★ 反证③：旧写法下 ③④ 也被拒（护栏两条判据都拦得住 ⇒ 改判据没有放松护栏）
+PASS 9e 副本已删（⛔ 不给仓库留垃圾）
+
+ALL PASS (_selftest-auto-collect)
+  ✔ _selftest-auto-collect.mjs
+PASS ★① Plan B 前提（上游已停止注入）下，计划零冲突
+PASS ★① 反证：上游仍在注入时，同一份计划必须报"撞 10"（order 10 是有条件可用的）
+PASS ★① 硬保留位无论什么模式都不许占（清单一律与计划零重叠）
+PASS ① 段名一律用本插件前缀 dma:（不占上游 pmp-dsh-tavern:* 命名空间）
+PASS ① 卡字段 7 段齐全（ST 的 7 个标记名都在计划里）
+PASS ① 版本号在位（装配结果一变就必须 +1）
+PASS ★② 默认（enabled 缺省）一段都不注册，并回可读原因
+PASS ② enabled:false 同样不注册
+PASS ★② 上游仍在注入（tavernProfileActive:true）⇒ 硬拒绝，并点明双重注入
+PASS ③ 只喂 3 个字段 ⇒ 只注册 3 段（不塞空段）
+PASS ★④ post-history-instructions 在 system 尾部（9949）、且带"近似"标注
+PASS ④ PHI 的 order 严格小于本插件既有的静态规则段（9950 不挪）
+PASS ④ depth-prompt 带"近似"标注（DSH 无任意深度插入）
+PASS ★⑤ greeting-reference 不在计划里（本插件不注册开场白；由记忆库那侧管）
+PASS ★⑥ 真注册：假 ctx 收到的 name/order/text 与计划逐条一致
+PASS ⑥ 注册返回值给出 disposer，调用不抛（可卸载）
+PASS ★⑦ 启用 + 上游可达 ⇒ 明确警告"可能双重注入"
+PASS ⑦ 启用但上游不可达 ⇒ 无警告
+PASS ★⑧ 反证：把某段 order 改成 45（rp:policy 的位）⇒ 必须报冲突
+PASS ★⑧ 反证：计划内两段同 order ⇒ 必须报重复
+PASS ★⑧ 反证：把 greeting 塞回计划 ⇒ 断言必须红（证明 ⑤ 不是空跑）
+PASS ★⑧ 反证：宿主没有 systemPrompt.section ⇒ 拒绝且不抛
+PASS ★⑧ 反证：buildCardSections 对空/非字符串输入不生成段（不把 undefined 变成 "undefined"）
+PASS ⑧ 有条件可用的位只有"上游那一窗"这一条，且它不在硬保留清单里
+
+== 总结：24 通过 / 0 失败 ==
+ALL PASS
+  ✔ _selftest-card-sections.mjs
+== _selftest-client.mjs · dsh-memory-archive 客户端自检（v4） ==
+[PASS] ModuleLoader.load 被接住（顶层 IIFE 真执行），id=dsh-memory-archive，factory 是函数
+[PASS] factory(require) 真执行并返回 module.exports（只 require react）
+[PASS] exports.name === 'dsh-memory-archive'；apply 是函数；inject 是数组
+[PASS] ★ exports.__internals 存在，且恰好含 15 个纯函数（v4.1 新增 8 个 + D 单 parseMarkdown）
+[PASS] inject 名单的每个成员在假 ctx 上都有真实载体
+[PASS] ★ D 单 + 20260919：apply(fakeCtx) 不抛；inject 恰好 ["slots","sessions"]（sessions 是**跟随当前会话**用的，不是搜索类阅读源回来了）
+[PASS] ★ 面板跟随（20260919）：查到会话的周目才改绑定；查不到一个字不改；本次打开不重复写；读的端点只此一处
+[PASS] ★★ 顶栏「本会话周目态」+ 向量档未归入那条（20260920 口径「认不出来的会话默认为新会话」）
+[PASS] ★ 席位契约（20260918 F 单 2→3；20260919 加 OOC 前缀席 3→4、收纳提示席 4→5）：恰好 5 个席位 = sidebar ×2（原样未动）+ conversation.input.right ×2 + shell.overlay ×1
+[PASS] ★ 收纳提示席（20260919）：注册在 shell.overlay、读 /anima/ingest-state **恰好一次**、空闲时不渲染、卸载即停
+[PASS] ★ settings.section 一个都没有（注入与注册两侧都为零）
+[PASS] buildCatalogIndex：对象与 JSON 字符串两种入参都行；空/坏输入给空索引不抛
+[PASS] labelCharacter：目录命中给真名「示例角色」，未命中给 8 位短 ID
+[PASS] labelPlaythrough：含「1周目」；默认带「最后打开」；short 不带；未命中给短 ID
+[PASS] ★ labelSession 三级回退：title → 周目目录「示例角色 · 1周目」→ 短 ID「session-…」
+[PASS] ★ 上述解析输出（真名/周目/短 ID 三路）都不含完整 UUID / 完整 sessionId
+[PASS] pad4：数字补零到 4 位
+[PASS] ★ workspaceLabelFromCwd：取最后一段（正/反斜杠都认；坏输入给空串）
+[PASS] ★ decodeWorkspaceSlug：--D-apps-demo-ws~914D~7F6E~533A-- 解码后含「配置区」（~XXXX 十六进制转义 → 字符）
+[PASS] ★ 空会话过滤：requests===0 隐藏、origin=subagent 隐藏、★ requests===-1（未解析）不算空不隐藏
+[PASS] relativeTime：DSH 口径 2分钟 / 1小时 / 15小时 / 3天；坏时间给空串
+[PASS] ★ groupSessionsByWorkspace：cwd 命中 ⇒ 真名+resolved；全组拿不到 ⇒ slug 解码+未解析；组内/组间均 mtime 倒序
+[PASS] ★ splitSystemSections：identity 认出、storyAnchor 照原样「归属待确认」、认不出 ⇒ 未能识别归属；§2.6 注释逐字
+[PASS] clipInfo / splitMessagesText：截断标记剥出原长；messages 按条切开、形状变了给 null
+[PASS] 渲染按钮：wide=false 出 ⚙，wide=true 出「记忆库」，title=记忆库 · 阅读与设置
+[PASS] ★ v5 P0 独立入口 agent-editor：窄屏「词」、宽屏「提示词查看器」、title=提示词查看器 · 会话 / 装配地图 / 维护（20260913 改版契约）
+[PASS] ★ 20260913 三级导航面板（独立浮层）：左=会话列表、右=装配地图主界面（★无轮次胶囊、空闲提示）、组成折叠条、维护按钮、无 Skill 勾选、⛶/✕ 独立
+[PASS] ★ 顶层组件（面板）作为普通函数直接调用一次，不抛
+[PASS] ★ 读视图（工作区）：顶栏=当前根人话名+提示词+设置+⛶+✕；★ 没有常驻根模式单选
+[PASS] ★ 界面可见文本零完整 UUID（读视图·工作区）；底行是人话路径 + 复制按钮
+[PASS] ★ 读视图（会话）：默认「会话事件」；标题=示例角色 · 1周目 + 来源徽标「来自周目目录」
+[PASS] 读视图（工作区 + Tavern 不可达）：红字原因 + 源退到 会话事件/会话搜索
+[PASS] 读视图（宿主 API 失败）：说明红字在，工作区阅读源照常
+[PASS] ★ v4.1 入口拆分：记忆库面板只剩 阅读 / 提示词模板（两子页）/ 设置，查看器三栏全部移出
+[PASS] ★ 压缩指令子页：说明逐字在、textarea(≥12行,初值=current)、按钮行齐、参考默认折叠；展开见官方原文+出处
+[PASS] ★ 收纳占位子页（**只读**）：说明原文一句 + 变量说明 + 无编辑入口（2026-09-16 用户口径）
+[PASS] ★ 模板读取失败（宿主不可用）：可读红字 + 重试，不出假输入框
+[PASS] 设置视图（工作区）：返回阅读 + 根模式/工作区根/向量检索 API/诊断；下拉显示真名；★ 卡片恰好 4 个输入框、密钥框 type=password 初值恒空（验收 1）
+[PASS] ★★ 工作区根两个下拉显示的是**已保存的绑定**（config.root），不是自动发现挑的那个（20260920 真机："角色/周目切不动"）
+[PASS] ★ 工作区根下拉：绑定指向的 id 不在发现结果里 ⇒ **照样列出来并标 ⚠**（⛔ 不许静默显示成别的项）
+[PASS] 设置视图（会话）：出现「根会话」块（真名下拉）
+[PASS] ★ ⛶ 全屏：外壳切 inset/100vw/100vh/直角，且全屏时背景点击不关面板
+[PASS] ★ API 根路径常量恰好是 /dsh-memory-archive/api；Tavern 通路恰好是既定 URL
+[PASS] ★ 用到的宿主 rest 全在表内（含 /templates 与 v5 的 /agent·/agent/detect），且全部用到（prompt 数据面在另一条核对）
+[PASS] ★ v4：事件 limit=200（宿主上限），URL 走 limit+offset
+[PASS] ★ v4 常量在位：摘要 60/20/窗口2；面板 1280×860
+[PASS] 源码零 settings.section 字样；无写死绝对路径；不用 localStorage
+[PASS] 密钥契约：__CLEAR__ 约定在，密钥输入是 password，初值恒为空 useState('')
+[PASS] ★ §0.1 修复在源码里：GET /sessions 必须带 ?titles=1（会话真名的判据）
+[PASS] ★ §0.2 自查：client.js 里零 session-<uuid> 字面量（真实与合成都不该有）
+[PASS] ★ 提示词数据面在位：PROMPT_API_BASE=/dsh-memory-archive/prompt，五个 rest 全用到
+[PASS] ★ 20260915 查看器提速：**不再有空闲批量补标题**（源码里零 /api/sessions/resolve 调用点）+ 列表默认走 /api/resident（零解析）
+[PASS] ★ 解释文案（2026-09-16 起 = 用户给的说明原文）+ 占位卡的官方锚点仍在；仍然只 require('react')
+   [info] 表单字段调用点 32 个 · 带 id 32 个
+[PASS] ★ a11y：每个表单字段创建点 e('input'/e('textarea'/e('select') 200 字符内都有 id（浏览器自动填充 + 读屏定位）
+[PASS] ★ v5 P0 双席位在源码里：memory-archive + agent-editor，都是 sidebar.footer.action 注册
+[PASS] ★ 完整视图 / 并列版块页签已整体删除（护栏）：代码里⛔ 不许再出现 FullPromptView / PartTabs / PART_TABS / fullState / copyFull
+[PASS] ★ 大文本不许塞一个 <pre>：FULL_CHUNK_CHARS=2000 分块 + content-visibility:auto
+[PASS] ★ DSH 式会话列表：「工作区」分组、14px 名字/12px 时间、每组 8 条折叠、slug 降级如实标注
+[PASS] ★ §2.6 的 12 条版块注释逐字进源码（title 悬停含谁注入 + order + 作用）
+   [info] 排版常量：正文 16px / 行高 1.75 / 列宽 min(880px, 100%) 居中 / 内边距 28px / 段间距 0.65em / 块间距 14px / 等宽 14px·行高1.65 / 小字 12px
+[PASS] ★ B 单排版常量（数值自证）：正文≥15px·行高≥1.7·列宽 min(880px,100%) 居中·内边距≥24·段间距≥0.6em·块间距≥12·等宽14px·行高≥1.6·小字≥12px
+[PASS] ★ B 单编辑功能：备注逐字进界面源码 + TODO 写明真相源/回滚；零写归档代码路径；CHANGELOG「计划中（未实现）」两条逐字
+[PASS] ★ D 单 parseMarkdown 逐项：#/##/### 标题、**粗**/__粗__、*斜*/_斜_、`行内代码`、围栏代码块、有序/无序列表（含 2 空格嵌套）、引用、---/***/分隔线、链接只显文本
+[PASS] ★ D 单 parseMarkdown 健壮性：未闭合围栏 / 落单 ** / 空串 / 非字符串 / 超长单行 ⇒ 不抛且降级成原样文本
+[PASS] ★ D 单静态：无 dangerouslySetInnerHTML；md 只用于正文（摘要/原文/事件/messages 视图），system/tools 保持原样；★ 2026-09-20「状态」档已摘除
+[PASS] ★ D 单：搜索类阅读源删干净（组件/字面量/注入能力），「阅读源」标签不再出现（渲染断言），摘要/原文/状态仍在
+[PASS] ★ 导入/收纳视图（2026-09-15 U1/B2）：三张卡齐 + 控件 id 齐 + 顶部有入口按钮
+[PASS] ★ 自动收纳**失败播报**（用户口径：失败不许静默）：顶栏红标 + 卡里给 code 与原因
+[PASS] ★ D 单：CSS 兼容备忘两处逐字（设置视图一行 + CHANGELOG 计划中一条）+ TODO 写明注入点/命名空间/主题变量映射；0.2.0 补移除说明
+[PASS] ★ 可写项块三态文案逐字（20260913：Skill 勾选区按用户拍板移除，其余契约不变）+ 预览底部一行 + 可写/只读(官方语义)/未知/读取中
+[PASS] ★ v5 P0 零写入：/agent 两个 rest 只经 requestJson（GET）；无写盘迹象；skill 勾选无本地存储
+[PASS] ★ 调用次数四形态渲染：-1⇒「—」、-2⇒「⚠ 失败」、0⇒「0 次」（showAll 才可见）、3⇒「3 次」；解析失败绝不画成 0
+[PASS] ★ 宿主侧（lib/index.js）：ENDPOINTS 有 /agent 与 /agent/cards、/agent/card；★ 预设线六条已退役；6 条事实口径在；agent 函数体零写盘调用
+[PASS] ★ skill 文档：唯一的 rp-assistant 在，且"结构地图 / 先讲作用再问意见 / 白话纪律 / 边界 / 只做选择题 / 资料指路"齐
+[PASS] ★ C 单三级导航静态：源码删净轮次胶囊（dma-turn）/「← 回地图」/ onTurn；fixture 开关只能由 URL ?fixture=1 显式开启
+[PASS] ★ C 单三级导航渲染：选中会话（hook5）+ L2 开（hook27）+ L3 开（hook8=system）⇒ 消息定位面板、详细抽屉、地图容器（data-pm-main）同框；轮次胶囊不存在
+[PASS] ★ 常驻批量确认：勾选框只勾选（stopPropagation、不发请求），落盘只发生在确认条那几个按钮上
+[PASS] ★ 最近几楼卡（2026-09-17 新段 mt:lastFloors）：卡在、控件 id 齐、位置口径写明，且带反证
+[PASS] ★★ 记忆库写入卡已整块退役（2026-09-19 用户口径「也可以摘除，包括代码和描述」）：面板里⛔ 不该再有它的任何痕迹
+[PASS] ★ 20260918 出口：__viewerMessages 在（夹具整包/分段纯函数/消息流视图）；夹具带 turn + reasoning 块；__internals 仍恰 15 键
+[PASS] ★ 20260918 T3 夹具渲染：按楼分段段头出现（第 1 楼/第 2 楼），每条消息各归各段（结构级核对，不丢）
+[PASS] ★ 20260918 T2：思维链词头可见且灰斜体可辨；正文词头行齐；⛔ 默认不展开全文（第二行不可见）
+[PASS] ★ 消息流单 T2 下钻（并进抽屉）：有 seq 的行都可点且 onClick 携带该 seq；行内展开/行内原 JSON 残留 = 不合格；列表不依赖整段 text
+[PASS] ★ 消息流单 T2 反证（按条取，不是切整段）：抽屉正文请求 URL 带 seq=；⛔ 不读 state.data.text、不切整段、不用 preview 拼
+[PASS] ★ 消息流单 T2 抽屉渲染（长正文夹具）：头（seq/role/字数）+ 正文原样可见 + 原 JSON 带来源；思维链只给词头（灰斜体，⛔ 默认不展开）
+[PASS] ★ 消息流单 T3 反证（抽屉能滚）：滚动容器 overflow=auto/scroll 且 maxHeight 有界；加载态与完成态**同一个容器**（⛔ 不许只写在加载态）
+[PASS] ★ 消息流单 反证（三种失败都要说话）：取数中 / 网络失败 / ok:false（含被压缩遮蔽）各带可见原因，⛔ 都不许空白
+[PASS] ★ 消息流单 徽标：工具结果 / 已压缩的条目在抽屉头带徽标（照 system 抽屉段头写法）
+[PASS] ★ 20260918 反证（缺 turn）：某条 turn 改成 null ⇒ 落「未标注楼」段（不丢、不被别的楼捞走）
+[PASS] ★ 消息流单 T1：query 不再影响列表（传了也走分段视图）；老宿主没有 messages 数组 ⇒ 原样全文视图（口径不动）
+[PASS] ★ 消息流单 T1 反证（静态）：消息流栏无 PartTabs/无搜索框；段抽屉内搜索仍在；FullPromptView 的 PartTabs 引用如实钉住
+[PASS] ★ 消息流单 渲染（夹具）：消息流栏出分段段头/逐条行/思维链词头；文案「消息流」；不再有「部件」并列视图
+[PASS] OOC·出口在位：exports.__ooc 恰好 13 个成员（常量/纯函数/组件），未占用 __internals 等既有出口
+[PASS] OOC·★ 容器判据（2026-09-18 真机修正的回归位）：真机语义下必须认出会话区容器，且**不会**被 `<body>` 式的「谁 contains 谁」误判掉；侧边栏那片仍要拒
+[PASS] OOC·验收1 夹具渲染：假 inputActions + 会话区假选区 ⇒ 渲染出「质疑」按钮且可用；没有 inputActions ⇒ 如实禁用并给 title（不抛）
+[PASS] OOC·验收2 ★★反证（不许覆盖草稿，20260919 新形状）：预设「我打算回到房间」+ 有选区 ⇒ `OOC:` 单独占首行、前缀之后逐字等于原草稿、引用块只在其后追加
+[PASS] OOC·★★验收2b 反证（读不到草稿就一个字不写）：会话位没给 useInput ⇒ 点击既不许调 setDraft，也要如实写明原因
+[PASS] OOC·验收3 ★反证（空/纯空白选区）：按钮 disabled，且即便强行触发也不调用 setDraft
+[PASS] OOC·验收4 ★反证（选区不在会话区）：侧边栏选中 / 容器判据落空 / 自家 dma- 面板正文 / 输入框内 ⇒ 一律 disabled 且强点不写
+[PASS] ★ OOC·静态（验收5）：conversation.input.right 注册逐字在源码、meta 恰好一次、新 id 不撞既有三 id、既有两席注册行原样
+[PASS] OOC·纯函数 buildOocText（20260919 新形状）：`OOC:` 单独首行逐字、截断标注照旧逐字、草稿尾单换行/双换行三态、引用逐行 > 
+[PASS] OOC·纯函数 buildOocPrefix（20260919）：空草稿只放前缀、有内容就地前置、引用块另起一行、★ 幂等（已有前缀一个字不动）
+[PASS] OOC·验收5（OOC 前缀席，20260919）：一键标场外；★ 幂等反证（已有前缀一次都不写）；缺 inputActions ⇒ 禁用；读不到草稿 ⇒ 一个字不写
+[PASS] OOC·纯函数 selectionVerdict 判据表：空锚点/缺容器/侧边栏链 ⇒ false，会话区链 ⇒ true
+[PASS] OOC·容器判定：从我们自己的按钮往上找（侧边栏天然不在链上）；后缀阶梯逐档回退；全都落空 ⇒ null
+[PASS] OOC·环境缺失不抛：window.getSelection 不存在 ⇒ 判据 false 且原因可读
+[PASS] ★ 大纲·档位逐字（验收1）：computeSources 工作区返回恰好 [摘要, 原文, RP 记忆, 向量, 压缩]（★ 2026-09-20：摘「状态」档、加「向量」档；★ 2026-09-21：加「压缩」档；★ 2026-09-25：「剧情大纲」改名「RP 记忆」）；会话模式只有 [会话事件, 压缩]
+[PASS] ★ 向量·四卡渲染（验收）：当前状态 + 库 + 向量条目 + 参与检索；红字人话；周目徽标三色；折叠按钮；完整 UUID 不上界面
+[PASS] ★ 向量·只看本周目（bound 0 条）⇒ 如实空态指向红字；正文坏 ⇒ 徽标照摆
+[PASS] ★ 向量·库文件缺失与无快照的空态（⛔ 不白屏、不编数字）
+[PASS] ★ 向量·读侧成功那一相（2026-09-26 T1）：最近一次成功 + 耗时 + 上次成功时间 + 维度对不上时如实提示
+[PASS] ★ 记忆库·门（验收R1）：确认控件 dma-rpmem-reveal 在源码与渲染树里；未确认态只有说明+按钮；判据灵敏度自证
+[PASS] ★★ 记忆库·两条取数路径（验收R2）：清单只在 reveal、正文只在按行回调；整份代码里该端点恰好 2 次；RP_MEMORY_MISSING 恰好 1 次
+[PASS] ★ 记忆库·互不越界（验收R3）：另外四个阅读源组件都不碰 rp-memory
+[PASS] ★ 记忆库·打开文件夹（2026-09-20；同日补空态）：只出现在确认之后 · 两处落点都给 · 只带枚举不带路径 · 成败都播报
+[PASS] ★★ 记忆库·死区 + 直接编辑（2026-09-23）：入口只在确认之后 · 不自己算 sha/切块 · 写端点恰 1 处 · 红字不定性且不还原
+[PASS] ★★ 记忆库·楼层快照（2026-09-23 / 同日补单 / ★ 2026-09-24 收尾）：按 (楼层, 变体) 传 · 不自己算第几楼 · 列表/高亮/老记录只读都画得出来；★ 常驻状态行两相 + 横幅三颗按钮；反证：挖掉列表支 / 挖掉状态行必红
+[PASS] ★★ 记忆库·楼层清单的默认窗口（2026-09-25）：只画最近 10 行 · 当前行与档案指针行**永远可见** · 省略标记与「显示其余 N 条」；反证：一刀切掉那两行必红
+[PASS] ★★ 记忆库·楼层「看改动 ▸」下钻（2026-09-25）：点了才发那一个请求 · 三态如实画 · 逐份逐行照宿主给的画；反证：挖掉"看按钮 id"必红
+[PASS] ★ 压缩·档与端点（验收1）：ComputeSources 里有 compact 档、ReadArea 里接了 CompactFlow、只读宿主两条端点
+[PASS] ★ 压缩·轮询（验收2）：3–5 秒一次、面板关掉就停（清理函数里 clearTimeout）
+[PASS] ★ 压缩·⛔ 不自己算百分比（验收3）：源码里不许出现任何原始 token 字段（含反证）
+[PASS] ★ 压缩·读不到就红字（验收4）：主/副两行各有「读不到（原因）」分支；⛔ 不许显示 0%
+[PASS] ★ 压缩·控件（验收5）：滑块 5–90 步 5 + 数字框互相同步 + 开关 + 保存；如实小字由宿主给（notes 原样显示）
+[PASS] ★ 压缩·失败也说话（验收6）：整体 ok:false 时从 err.payload 里把两半摊开，⛔ 不静默
+[PASS] ★★ 记忆库·顶部弹窗（2026-09-24）：常驻挂载 · 唯一长连（无定时器）· 有 pending 才弹（三颗 + ✕）· 没有不渲染；反证：把浮层挖掉必红
+[PASS] ★★ 记忆库·浮层 ✕ 收得掉（2026-09-25 修 bug）：成功 ⇒ 本地那条当场清掉；失败 ⇒ 浮层还在（fail-loud）；反证：挖掉"成功后收"那一脚，同一判据必红
+[PASS] ★★ 记忆库·弹窗「对齐楼层」＝先真回档、再记账（2026-09-26）：端点+体逐字 · 回执两件事都在 · 边界两相（没有可退回的那一份 ⇒ 就地登记 / 被死区挡 ⇒ 红字且不清 pending）；反证：改回打 settle 必红
+== 总结：127 通过 / 0 失败 ==
+  ✔ _selftest-client.mjs
+PASS 1a ★ 一条 compaction/summary ⇒ **恰好 1 个区间**（⛔ 不再按相邻 seq 切）
+PASS 1b 区间 id/跨度 = region-0-8（min/max 只用于标识，docs 顺序是面顺序）
+PASS 1c ★ 区间里的 seq 集合 = 该事件自己的 shadowedSeqs（8 个，缺 6 就是缺 6）
+PASS 1d ★ docs 顺序 = **面顺序**（⛔ 不排序）：给乱序 shadowedSeqs ⇒ 原样保留
+PASS 1e ⛔ 没有替换事件 ⇒ 0 区间（区间不再由 surface 状态推出）
+PASS 1f ⚠️ 反证锚点：同一夹具按「相邻即归一段」算 = **2** 个区间（新判据 = 1）
+PASS 2a 同输入两次相同且是 64 位十六进制
+PASS 2b seq 顺序打乱 ⇒ 哈希必须不同
+PASS 2c 哈希等于口径直算值（docs 正文按 \n 拼接 sha256，顺序 = 面顺序）
+PASS 3a 楼数只算 2
+PASS 3b ★ tool/result 的正文**不并进**前一条楼（2026-09-22 收紧：工具不是对话）
+PASS 3c 第二条楼独立
+PASS 3d name 恒（来自会话）/ is_system 恒 false / is_user 按 type
+PASS 3e 其余类型照旧并入前一条楼（\n 接）—— 只有 user/assistant 成楼、tool 被排除
+PASS 4a startFloor=6 喂 3 楼 ⇒ 楼号 6,7,8
+PASS 4b nextFloor=9
+PASS 4c ★ 插件注入的 user 消息（plugin · skill-catalog）**都不是楼**
+PASS 4d ★ 它们的正文**不许并进**前一条楼
+PASS 4e ★ 工具事件（tool/result）也不再并进前一条楼（旧口径是"照旧并进"，本单收紧）
+PASS 4f 楼号连续、只数真楼
+PASS 4g ★ 反证：kind 缺失 ⇒ 照旧成楼（不静默丢真消息）
+PASS 5a 规划含 3 个 region 且全部 alreadyArchived=false
+PASS 5b ★ checkpoint 替换节点不成楼：楼号接在现有最大楼 5 后 = [6,7][8,9][10]
+PASS 5c 第一轮 archived=3、台账已更新
+PASS 5c2 ★ 多区间：3 个区间**全部**落库（不是只落第 1 个）
+PASS 5d 第二轮 archived=0
+PASS 5e 第二轮 skipped[0].reason=already-archived（共 3 条）
+PASS 5f 假 Tavern write 调用次数不变
+PASS 5g applyCollect 次数不变
+PASS 5h 重扫 alreadyArchived 全 true（只认台账哈希）且**重扫这一步**不再生成落库子计划
+PASS 5i 台账 3 条、键全是 64 位哈希、只有哈希/计数/路径字段
+PASS 5j planScan/applyScan 返回都没有 planId 键；planHash 是 scanplan-<16hex> 且 apply 原样回显
+PASS 6a readLedger 不抛 + 当空台账
+PASS 6b 给 warning
+PASS 6c 坏文件已先备份成 .bak-* 且内容原样
+PASS 6d 新台账生效（无 warning、空 regions）
+PASS 7a 4 楼 region 进 skipped：too-big + COLLECT_REGION_TOO_BIG
+PASS 7b 其它 region 照常处理（1 楼、楼号从 0 起）
+PASS 7c 只落了小区：archived=1、台账 1 条
+PASS 8a fixture 前 12 字不在 lib/collect-scan.js
+PASS 8b fixture 前 12 字与全文都不在台账文件
+PASS 8c fixture 前 12 字不在 scan 响应形状里
+PASS 9a collect-scan.js 无 llm / stream( 痕迹
+PASS 9b scanConstants 冻结且三个阈值正确
+PASS 9c 机械条目 = 各楼前 80 字 \n 连接 + 后缀（含楼数），总长 ≤2000（⛔ 公式一字未动）
+PASS 10a ★ 区间自带模型摘要 ⇒ kind=model-summary 且正文逐字等于事件里的那份
+PASS 10b 事件元数据进 summary.meta（compactionId/model/provider/shadowedTokenCount/eventSeq）
+PASS 10c tags 行收编成扁平枚举数组 [Suspense, Important]（大小写归一 + Important 收编）
+PASS 10d 覆盖不唯一（同一段 seq 被两条替换声称）⇒ mechanical + 正文与机械口径逐字相同 + warnings 含 ambiguous-coverage
+PASS 10e prune 区间 ⇒ mechanical + 正文=buildRegionSummary 逐字（机械公式与旧版一致）+ no-model-summary
+PASS 10f 模型摘要为空（空块/空串）⇒ mechanical + warnings 含 no-model-summary
+PASS 10g 模型没给 tags ⇒ meta.tags=[] + warnings 含 tags-empty
+PASS 10h tags 给错 ⇒ 只留词表内 [Daily] + warnings 含 tags-partial（⛔ 不编）
+PASS 10i ★ 未注入 loadRawEvents ⇒ SCAN_INVALID 且点名 loadRawEvents（⛔ 不假装"0 区间"）
+PASS 10i2 ★ 没有压缩事件 ⇒ scanned=0、无机械条目（"机械兜底是常态"的时代结束）
+PASS 10j 模型摘要正文不在 plan.warnings 里
+PASS 11a ★反证：回声正文 + 指令 ⇒ mechanical + reason=prompt-echo
+PASS 11b ★反证：回声 ⇒ 该区间回落机械条目 + summaryFallback=prompt-echo
+PASS 11c ★反证：warnings 里有 prompt-echo 播报（⛔ 不许静默跳过）
+PASS 11d ★反证：正常中文摘要不许误杀（采用模型正文，逐字）
+PASS 11e 未注入指令 ⇒ 闸门不判 echo（只按结构判，model-summary 照旧）
+PASS 11f 静态：collect-scan 的 deps.instruction 透传在位
+PASS 12a ★ 相：Host=127.0.0.1:3080 ⇒ createTavernClient 的 baseUrl 逐字等于 http://127.0.0.1:3080
+PASS 12b ★ 相：Host 优先于 socket.localPort（兜底那条没被用上）
+PASS 12c ★ 相：没有 Host 头 ⇒ 用 socket.localPort 兜底 ⇒ http://127.0.0.1:3080（A1 老口径照抄）
+PASS 12d ★ 相：自动收纳给的 base（http://127.0.0.1:<port>）照旧被接受 —— 收紧契约没伤到另一条路
+PASS 12e ★★ 端到端：/collect/scan 干跑**出 plan**（真机那次的症状是 fetch failed）
+PASS 12f ★★ 端到端：Tavern 请求真的打到 Host 指的那个端口（同源）—— 打到 80 就是真机那个 fetch failed
+PASS 12g ★★ 端到端：/collect/auto 规划+落库也通（archived=1，写进假 Tavern）
+PASS 12h 反证夹具就位：副本里那两处确实改回旧写法（⛔ 原文件一字未动）
+    · 旧写法 reqLike=null ⇒ createTavernClient({baseUrl:"http://127.0.0.1"})
+PASS 12i ★★ 反证：旧写法基址退化成 http://127.0.0.1（**无端口**）⇒ 打 80 端口
+PASS 12j ★★ 反证：§3-1 那条判据在旧写法下**必红**（同一个断言：baseUrl === http://127.0.0.1:3080 ⇒ false）
+    · 旧写法走真 HTTP ⇒ {"status":500,"error":{"code":"TAVERN_UNREACHABLE","message":"Tavern 工作区请求失败：fetch failed"}}
+PASS 12k ★★ 反证：旧写法端到端**不是 plan**（形态与真机那条对得上：TAVERN_UNREACHABLE / fetch failed）
+PASS 12l ★★ 反证：旧写法那条错误里**没有一个字**指出"基址推不出来" —— 这就是"失败形态不可读"本身
+PASS 12m 副本已删（⛔ 不给仓库留垃圾）
+PASS 12n ★ 反证：base 拿不到 / 只剩主机名 / 端口越界 ⇒ 一律 SCAN_BASE_UNKNOWN（8 种入参）
+PASS 12o ★ 反证：文案说清"推不出宿主自己的地址 / 本轮没连 Tavern"（⛔ 不是 fetch failed）
+PASS 12p ★ 反证：内核拿不到 base ⇒ SCAN_BASE_UNKNOWN（⛔ 不拿 http://127.0.0.1 去连、不报 fetch failed）
+    · 推不出地址时路由的响应 ⇒ {"status":503,"body":{"ok":false,"error":{"code":"SCAN_BASE_UNKNOWN","message":"推不出宿主自己的地址（Tavern 基址里没有可用端口：http://127.0.0.1），本轮没连 Tavern。"}}}
+PASS 12q ★ 反证：路由响应 503 + SCAN_BASE_UNKNOWN（面板上是一句人话，⛔ 不是 fetch failed）
+PASS 13a 反证夹具 A 就位：副本的**分段判据**已改回旧写法（⛔ 原文件一字未动）
+PASS 13b ① 相：那段真实形状的事件 ⇒ **恰好 1 个区间**
+PASS 13c ① 相：区间的楼里**只有真对话**（4 楼 = 玩家/角色/玩家/角色；工具·插件·思维链·memory_write 一个都不在）
+    · ① 反证：旧判据在同一夹具上 ⇒ 2 个区间（region-0-5 / region-7-8）
+PASS 13d ① ★反证：旧判据「相邻即归一段」在同一夹具上产出**多**区间 ⇒ 「恰好 1 个区间」那条断言必红
+PASS 13e ② 相：条目正文 = 那次压缩自己的模型摘要文本，summaryKind=model-summary
+    · ② 反证：文档形状 ⇒ 新代码 0 区间；旧判据 2 区间 / ["mechanical:no-model-summary"]
+PASS 13f ② ★反证：(a) 文档形状（无 data）⇒ 新代码 0 区间（压缩的 shadowedSeqs 取不到）
+PASS 13g ② ★反证：(b) 同一份文档形状喂旧判据 ⇒ 区间还在，但**每一条**都回落 mechanical/no-model-summary（真机 §1-① 的形态）
+PASS 13h ★ 本轮反证全程没有碰过本仓的 lib（原文件里两条判据都还在）
+PASS 13i ③ 相：prune ⇒ 仍出区间（2 条替换 = 2 个区间），它的摘要是 mechanical + no-model-summary + 大声播报
+PASS 13j ④ 相：插件注入的 user/message 不成楼、正文也不并进前一条楼
+PASS 13k ⑤ 相：全 tool/result 的区间 ⇒ floorCount=0 ⇒ skipped.reason=empty + COLLECT_REGION_EMPTY
+PASS 13l ⑥ 相：紧跟 summary 的英文 checkpoint 前言**不出楼**（它的区间里只剩两条真对话）
+PASS 13m 反证夹具 B 就位：副本里三条排除判据已挖掉（⛔ 原文件一字未动）
+    · ④/⑥ 反证：挖掉排除判据 ⇒ 楼 = ["甲甲甲甲甲甲甲甲甲甲","乙乙乙乙乙乙乙乙乙乙","【占位】插件注入的后","丁丁丁丁丁丁丁丁丁丁","己己己己己己己己己己"]
+PASS 13n ④ ★反证：挖掉插件注入的 skip ⇒ 它的正文必成楼（本条断言：楼里没有插件正文 ⇒ 旧写法下必红）
+PASS 13o ①★反证：挖掉工具事件的 skip ⇒ tool 的正文必并进楼（新写法下不并）
+PASS 13p ⑥ ★反证：挖掉替换节点的排除 ⇒ 英文 checkpoint 前言必成楼（本条断言：它不在楼里 ⇒ 旧写法下必红）
+    · 改造后（新判据 + 原始事件）：2 个区间 / {"model-summary":1,"mechanical:no-model-summary":1}；楼数 166+25；warnings 1 条
+    · 改造后区间：region-9-1068(model-summary) / region-1070-1100(mechanical)
+PASS 14a ★ 改造后：区间数 = 压缩次数（1 条 summary + 1 条 prune = 2），且一条 model-summary、一条 prune 回落
+PASS 14b ★ 改造后：那一次压缩 = **一个** region-9-1068（docCount = 279 = shadowedSeqs 个数）
+PASS 14c ★ 改造后：楼里只有真对话（工具·插件注入·checkpoint 与思维链一个都不在）
+PASS 14d ★ 改造后：模型摘要是那一份（**美化后的散文**，不是 80 字截断桩、也不是 JSON 原文）
+PASS 14g ★ 改造后：那份摘要的 tags 非空（各段并集、词表内）= [Serious, Romantic, Important]
+PASS 14h ★ 改造后：真机形状夹具的归档正文里**没有** JSON 外壳（"summary" / { / [ / "tags" 一个都没有）
+    · 改造前（旧判据 + 文档形状）：209 个区间（其中 208 段来自那一次压缩）；摘要来源 ["mechanical/no-model-summary"]；170 段有楼 / 其余 39 段被跳过
+    · 改造前前几个区间：region-9-9(楼1) / region-13-13(楼1) / region-17-17(楼1) / region-21-21(楼0)
+PASS 14e ★ 改造前（同一夹具 + 旧判据 + 文档形状）：那一次压缩被切成 **208** 段、每条都 mechanical/no-model-summary（真机 §1-① 同形）
+PASS 14f 反证副本已删（⛔ 不给仓库留垃圾）
+PASS 15a lib/index.js 导出 createRawEventLoader
+PASS 15b ★ 装载器给出**带 data 的原始事件**（via=live ⇒ loadSessionLog 的活注册表那条路）
+PASS 15c ★ 接线后同样的判据：1 个区间 / 楼里只有真对话 / 插件注入被挡在楼外
+PASS 15d ★反证：宿主没挂 sessionQuery ⇒ **抛**（⛔ 不返回空数组冒充"没有内容"）
+PASS 15e 接线锚（静态）：/collect/scan · /collect/auto 两条分派行与自动收纳钩子都传 createRawEventLoader
+PASS 16a0 反证副本 A 就位：美化那一步已换成"直接用模型原文"（⛔ 原文件一字未动）
+PASS 16b0 反证副本 B 就位：tags 收编已换回老路 extractTagsLine（⛔ 原文件一字未动）
+PASS 16c0 反证副本 C 就位：fail-open 已换成"解析不出就丢/就回落机械"（⛔ 原文件一字未动）
+PASS 16d0 反证副本 D 就位：两条旧写法都已合成（正文=原文 + tags 走老路）
+PASS 16a ① 相｜美化：真机形状的模型原文（两段 JSON）⇒ 正文 = 「甲段散文\n乙段散文」
+PASS 16b ① 相｜美化：⛔ 正文里不许有 JSON 外壳（"summary" / { / [ / "tags" 一个都没有）
+PASS 16c ① 相｜美化：item 自带的**分段前缀**（「第1天 清晨: 」）原样保留、⛔ 不再包一层
+    · ① 反证：正文直接用模型原文 ⇒ 正文 = "[{\"summary\":\"甲段散文\",\"tags\":{\"vibe\":\"Serious\","…
+PASS 16d ① ★反证：正文直接用模型原文 ⇒ noJsonShell(旧正文) = false ⇒ 16b 必红
+PASS 16e ② 相｜标签化：tags = 各段并集 [Serious, Romantic, Important]（去重 + 首次出现顺序）
+PASS 16f ② 相｜标签化：tags 全在冻结词表内（10 vibe + Important），且**没有** tags-empty
+    · ② 反证：老路（找正文末尾的 tags: 行）⇒ tags = []；tags-* 播报 ["region region-0-1 模型摘要没有可解析的 tags 行，tags 按空数组归档（tags-empty）"]
+PASS 16g ② ★反证：老路在同一夹具上 tags 必为 []、出现 tags-empty ⇒ tagsOk(旧 tags) = false ⇒ 16e 必红
+PASS 16h ③ 相｜fail-open（纯散文）：正文**原样**落盘、kind 仍 model-summary（⛔ 不丢、⛔ 不回落机械）+ 如实 warning
+PASS 16i ③ 相｜fail-open：tags 走**老路**（正文末尾的 `tags:` 行照样收得进，⛔ 老路没删）
+    · ③ 反证：fail-open 改成"解析不出就丢/就回落机械" ⇒ {"kind":"mechanical","why":"no-model-summary","bytes":140,"sameAsRaw":false}
+PASS 16j ③ ★反证：改成"丢/回落机械" ⇒ failOpenOk(旧结果) = false ⇒ 16h 必红
+PASS 16k ④ 相｜fail-open（坏 JSON）：正文**逐字**等于模型原文（含尾部空格，字节数一致）+ 如实 warning
+PASS 16l ⑤ 相｜词表外的 tag（special:["Nonsense"]）⇒ 剔除并播报 tags-partial，词表内的留下
+PASS 16m ⑤ 相｜全空（vibe:"" special:[] important:false）⇒ tags=[] + tags-empty（沿用现枚举）
+    · §6-3 改造前（真机形状夹具，正文=模型原文 + tags 走老路）：{"bytes":272,"hasJsonShell":true,"tags":[],"tagsWarn":["region region-9-1068 模型摘要没有可解析的 tags 行，tags 按空数组归档（tags-empty）"]}
+    · §6-3 改造后（同一夹具，同一份 lib）：{"bytes":117,"hasJsonShell":false,"tags":["Serious","Romantic","Important"],"tagsWarn":[]}
+PASS 16p ★ §6-3 改造前：真机形状夹具 ⇒ 正文是那份 JSON（含 "summary"）、tags=[] 且播报 tags-empty
+PASS 16q ★ §6-3 改造后：同一夹具 ⇒ 正文是散文（⛔ 无 JSON 外壳）、tags 非空 = [Serious, Romantic, Important]
+PASS 16n ★ 本轮反证全程没有碰过本仓的 lib（四条锚点都还在原文件里）
+PASS 16o 反证副本已删（⛔ 不给仓库留垃圾）
+PASS 17a0 对 1 反证副本就位：落盘已改回「拼成一条」（⛔ 原文件一字未动）
+PASS 17b0 对 3 反证副本就位：段级 tags 已改回「各段并集」（⛔ 原文件一字未动）
+PASS 17c0 对 4 反证副本就位：现取计划已丢段（⛔ 原文件一字未动）
+PASS 17d0 对 6 反证副本就位：两路并存的守卫已挖掉（⛔ 原文件一字未动）
+    · 17 改造后（3 段结构化，真链路）：{"entries":[["mt-0000-0001-1.md",563,["Serious"]],["mt-0000-0001-2.md",563,["Romantic"]],["mt-0000-0001-3.md",564,["Suspense"]]],"bodiesBytes":[1681,1681,1684]}
+    · 17 三段散文合计 1690 字；拼成一条时那一条 = 1692 字（含两个换行）
+PASS 17a ① 相｜3 段 ⇒ index.json 追加 **3 条** entry、文件 mt-0000-0001-1/2/3.md、正文各是**那一段**（⛔ 无 JSON 外壳、⛔ 没挤在一条里）
+PASS 17b ① 相｜每份 `.md` 的字数 = 该段的字数（563/563/564）、三份不重不漏 = 1690 字
+    · 17 改造前（副本 A：拼成一条）：{"entries":[["mt-0000-0001.md",1692,["Serious","Romantic","Suspense"]]],"bodiesBytes":[5048]}；archived=1
+PASS 17c ① ★反证：落盘改回「拼成一条」⇒ 条目数 = 1（一条 1692 字）⇒ ① 的判据 slSliced 必红
+PASS 17d ② 相｜只有一段 ⇒ 文件名**不带**后缀（mt-0000-0001.md）、条目 1 条、正文是那一段
+PASS 17e ③ 相｜tags 段级：三条 entry 各是那一段自己的 [Serious] / [Romantic] / [Suspense]
+    · 17 反证（副本 B：tags 并集）：[["Serious","Romantic","Suspense"],["Serious","Romantic","Suspense"],["Serious","Romantic","Suspense"]]
+PASS 17f ③ ★反证：tags 改回「各段并集」⇒ 三条 entry 的 tags 全变成 [Serious, Romantic, Suspense] ⇒ ③ 的判据 slSegTags 必红
+PASS 17g ④ 相｜一次调用：楼层**每个路径只 PUT 一次**（2 楼 = 2 个 PUT，没有重复写同一楼）
+PASS 17h ④ 相｜一次调用：摘要正文 **3 个路径各 PUT 一次**（N 份 = N 个文件，⛔ 不是写 N 遍同一份）
+    · 17 反证（副本 C：现取计划丢段）：{"entries":[["mt-0000-0001.md",1692,["Serious","Romantic","Suspense"]]],"bodiesBytes":[5048]}；archived=1
+PASS 17i ④ ★反证：现取计划丢段 ⇒ 落库静默缩回 1 份 ⇒ ① 的判据 slSliced 必红
+PASS 17j ⑤ 相｜fail-open（解析不出的原文）⇒ 条目数 = 1、正文是**整篇原文**（⛔ 不硬造分段）
+PASS 17k ⑤ 相｜机械兜底（compaction/prune 区间，官方那一段本来就没有模型摘要）⇒ 条目数 = 1
+    · 17 反证（副本 D：守卫挖掉）⇒ {"willWrite":5,"summaries":2}
+PASS 17l ⑥ 反证｜同时传 summary 与 summaries ⇒ COLLECT_INVALID（planCollect 与 validatePlanInput 两处都拒，⛔ 不猜）
+PASS 17m ⑥ ★反证：挖掉守卫 ⇒ 不再报错、**静默挑一个**（summaries 赢了，summary 被丢）⇒ ⑥ 的断言必红
+PASS 17v ★ 本轮反证全程没有碰过本仓的 lib（四条锚点都还在原文件里）
+PASS 17w 反证副本已删（⛔ 不给仓库留垃圾）
+PASS 18a 相｜逐段判：第 1 段超 1 MiB、第 2 段没超 ⇒ 区间**不整体回落**（kind 仍 model-summary，两段各自带 tooBig）
+PASS 18b 相｜那一段的正文换成**机械条目正文**（tags/meta 留空 = 老机械条目的形状），其余段照常落散文 + 段级 tags
+PASS 18c 相｜如实播报 model-summary-too-big（点名是**第 1 段**，⛔ 不静默、⛔ 不整条丢）
+PASS 18d 反证副本就位：逐段判据已换回**区间级**那一条（⛔ 原文件一字未动）
+    · 18 改造前（副本：区间级判据）⇒ selectModelSummary.kind=mechanical（model-summary-too-big）；区间摘要 kind=mechanical/model-summary-too-big；segments=无
+PASS 18e ★ 反证：区间级判据下**整条**回落 mechanical/model-summary-too-big、没有段可分 ⇒ 18a/18b 必红
+PASS 18f 反证副本已删（⛔ 不给仓库留垃圾）
+PASS 8d fixture 前 12 字不在自检输出里
+── 155 通过 / 0 失败 ──
+  ✔ _selftest-collect-scan.mjs
+=== _selftest-collect 行为自检 · 全量 · 假Tavern http://127.0.0.1:55144 ===
+PASS A0  index.js 只新增了 collect 分派行与端点表项（逐字在位）                                                   
+PASS A1  targets 发现周目；无归档 ⇒ hasArchive:false 且不抛                                                
+PASS A2  dryRun 不发 planId；plan 的字节/sha256 与 apply 后从假服务读回的逐字一致                                  
+PASS A3  索引 entries 长度 +1；schemaVersion/kind 保留；原条目原样；visibility 零触碰                            
+PASS A4  楼号已存在 ⇒ COLLECT_FLOOR_CONFLICT；overwrite:true 反证 ⇒ 成功                                  
+PASS A5  索引并发（二读窗口内被偷改）⇒ 409 + partial 如实列出已落盘文件                                                
+PASS A6  过期 plan（等效 TTL=0）⇒ COLLECT_PLAN_EXPIRED 且零写入                                           
+PASS A7  写中途失败 ⇒ 抛错且 partial 如实列出已落盘文件                                                          
+PASS A8  隐私自证：fixture 正文前 12 字在 collect.js 与本台源码里零命中                                            
+PASS A9  applyCollect 的每个变更请求都带同源 Origin、GET 不带（假服务按 secureTavernApi 规则放行）                      
+PASS A11 覆盖重导：摘要文件已存在 ⇒ 期望值=真身 sha（不再误报乐观锁）；未覆盖 ⇒ 明确拒                                           
+PASS A12 写前重核分级：目标文件「本来就存在」⇒ 文案说"已存在"（附 reason），不说"被改过"                                         
+PASS A14 ★ 老路形状钉死：只给 `summary` 的 plan 键集合照旧（⛔ 不多一个 summaries 键）                                 
+PASS A15 ★ 追加式：一次提交 3 份 ⇒ 楼层写一遍 + 索引**追加 3 条** + manifest.count = 3                             
+PASS A16 ★ 两路并存（summary + summaries）⇒ COLLECT_INVALID（planCollect 与 validatePlanInput 两处都拒，⛔ 不猜）
+PASS A17 ★ summaries 的落点必须互不相同（缺 id / id 重复 ⇒ COLLECT_INVALID，⛔ 不替你改名）                          
+PASS A18 ★ 逐段判重：某一份的 id 已在索引里 / 某一份的正文已存在 ⇒ COLLECT_SUMMARY_EXISTS（不 overwrite）                 
+17/17 绿
+  ✔ _selftest-collect.mjs
+PASS 0a 生成物导出 resolveInstruction（function）
+PASS 1a 指令开头 = anima 原文首行（逐字）
+PASS 1b anima 的顶级小节都在（逐字）
+PASS 1c anima 的关键准则句逐字在内（合并优先 / 最小密度 / 只在大触发时切 / Show-Don't-Tell / 时间前缀）
+PASS 1d anima 的标签口径逐字在内（10 个 vibe + special 事件/健康 + important 布尔 + RAW JSON Array）
+PASS 1e ★ 只有一份指令：auto/zh/en × faithful 四组合**返回同一份文本**（旧版那种 zh/en + faithful 两档已退役）
+PASS 1f ⛔ 生成物**不含 anima 的「破限」那条**（用户口径：破限头不由我们内置，界面留空由玩家自填）
+PASS 1g ⛔ 我们**不提供** `<basic_info>` / `<new_text_to_summarize>`（后者是 anima 指令里的笔误写法）
+PASS 1g2 ★ 引擎**自己**产出两个标签：`<text_to_summarize>` 字面量 + previous_summary 标签名
+PASS 1h 语言口径由 anima 原文自带（Language: Summary in Chinese），⛔ 不再靠我们追加语言提示
+PASS 1i ⛔ 仓库源码里**没有** anima 的破限文本（我们只留空字段，不内置）
+PASS 2a zh 指令长度落在 anima 量级（3500–5000 字符）
+PASS 2b en 指令与 zh 逐字相同（同一份）
+PASS 3a 非空 customInstruction 仍整段替换 / zh/en 追加提示不变
+PASS 4a 生成器连调两次逐字节相同（确定性）
+PASS 4b node --check lib/mt-compaction.js 退出码 0
+PASS 4c 产物约定文件名未被改动
+PASS 4d 临时目录已删除
+── 18 通过 / 0 失败 ──
+  ✔ _selftest-compaction-instruction.mjs
+
+S0 语法 / 确定性
+  ✔ node --check lib/compaction-threshold.js
+  ✔ node --check lib/mt-compaction.js
+  ✔ node --check lib/index.js
+  ✔ 生成器连调两次逐字节相同（确定性）
+  ✔ 产物里没有模板串残留（`${` 与反引号都不许进产物）
+
+S1 clampThresholdPercent：5–90 的整数、步长 5
+  ✔ 常量 = 5 / 90 / 5 / 15
+  ✔ 15 ⇒ 15%（原样）
+  ✔ 15 的 reason 为 null
+  ✔ 5 ⇒ 5%（原样）
+  ✔ 5 的 reason 为 null
+  ✔ 90 ⇒ 90%（原样）
+  ✔ 90 的 reason 为 null
+  ✔ 20 ⇒ 20%（原样）
+  ✔ 20 的 reason 为 null
+  ✔ 0 ⇒ 5%（夹过）
+  ✔ 0 的 reason 诚实给出
+  ✔ -7 ⇒ 5%（夹过）
+  ✔ -7 的 reason 诚实给出
+  ✔ 95 ⇒ 90%（夹过）
+  ✔ 95 的 reason 诚实给出
+  ✔ 1000 ⇒ 90%（夹过）
+  ✔ 1000 的 reason 诚实给出
+  ✔ 22 ⇒ 20%（夹过）
+  ✔ 22 的 reason 诚实给出
+  ✔ 23 ⇒ 25%（夹过）
+  ✔ 23 的 reason 诚实给出
+  ✔ 22.4 ⇒ 20%（夹过）
+  ✔ 22.4 的 reason 诚实给出
+  ✔ 17.5 ⇒ 20%（夹过）
+  ✔ 17.5 的 reason 诚实给出
+  ✔ 35 ⇒ 35%（原样）
+  ✔ 35 的 reason 为 null
+  ✔ abc ⇒ 15%（夹过）
+  ✔ abc 的 reason 诚实给出
+  ✔ null ⇒ 15%（夹过）
+  ✔ null 的 reason 诚实给出
+  ✔ undefined ⇒ 15%（夹过）
+  ✔ undefined 的 reason 诚实给出
+  ✔ NaN ⇒ 15%（夹过）
+  ✔ NaN 的 reason 诚实给出
+  ✔ {} ⇒ 15%（夹过）
+  ✔ {} 的 reason 诚实给出
+  ✔ [20] ⇒ 15%（夹过）
+  ✔ [20] 的 reason 诚实给出
+  ✔ ★ 反证：不夹紧的实现（原样返回 1000）会被 S1 的判据抓住
+
+S2 clampRetainRatio：恒 < thresholdRatio
+  ✔ 默认保留比例 = 0.05、上限系数 = 0.7
+  ✔ 0.03 @0.15 ⇒ 0.03（给定值更小就听它）
+  ✔ 0.5 @0.15 ⇒ 0.105（封在 0.7×阈值）
+  ✔ 缺失 @0.15 ⇒ 0.05
+  ✔ 非法（"x"）@0.15 ⇒ 0.05（回落默认，不猜）
+  ✔ 阈值非法（0）⇒ null（判不出来就不换配置）
+  ✔ 阈值非法（NaN）⇒ null
+  ✔ ★ 5% 阈值（0.05）+ 预设 retainRatio 0.05 ⇒ 0.035 < 0.05（不撞官方 TargetPressureConfigError）
+  ✔ ★ 反证：全域扫描（90 个组合）retainRatio 恒 >0 且 **严格 < thresholdRatio**
+  ✔ ★ 反证：不夹紧的实现（原样返回 0.05 @0.05）会被"严格小于"抓住
+
+S3 contextOccupancy / percentOf / triggerOccupancy（官方公式逐字）
+  ✔ 三个 token 字段齐 ⇒ projected = max(0, 50000+4000-2000) = 52000 ⇒ 41%
+  ✔ percentOf 给的就是同一个数（42 ⇒ 41，同一份公式）
+  ✔ 缺 surface/sampled ⇒ 用 pressureTokens（32000 ⇒ 25%）
+  ✔ sampledSurfaceTokens = 0 是**有值**（⇒ 仍走 projected）
+  ✔ surfaceTokens 缺失 ⇒ 退 pressureTokens
+  ✔ 整个 state 为 null ⇒ percent null + 人话原因
+  ✔ 整个 state 为 null ⇒ percentOf 也 null（不是 0）
+  ✔ state 是空对象 ⇒ percent null + 人话原因
+  ✔ state 是空对象 ⇒ percentOf 也 null（不是 0）
+  ✔ 没有 contextWindow ⇒ percent null + 人话原因
+  ✔ 没有 contextWindow ⇒ percentOf 也 null（不是 0）
+  ✔ contextWindow = 0 ⇒ percent null + 人话原因
+  ✔ contextWindow = 0 ⇒ percentOf 也 null（不是 0）
+  ✔ contextWindow 不是数 ⇒ percent null + 人话原因
+  ✔ contextWindow 不是数 ⇒ percentOf 也 null（不是 0）
+  ✔ 一个 token 字段都没有 ⇒ percent null + 人话原因
+  ✔ 一个 token 字段都没有 ⇒ percentOf 也 null（不是 0）
+  ✔ pressureTokens 是 null 且 surface 不齐 ⇒ percent null + 人话原因
+  ✔ pressureTokens 是 null 且 surface 不齐 ⇒ percentOf 也 null（不是 0）
+  ✔ 占比封顶 100%（压力 > 窗口也不给 120%）
+  ✔ projected 为负 ⇒ 夹到 0（max(0, …)）
+  ✔ triggerOccupancy：60160/128000 ⇒ 47%（与上面那个 41% 不是同一个分子）
+  ✔ triggerOccupancy 没给 totalTokens ⇒ null + 原因
+  ✔ triggerOccupancy 没给窗口 ⇒ null + 原因（但仍如实给出 totalTokens）
+
+S4 scanThresholdRatio / readThresholdRatio / patchThresholdRatio
+  ✔ SAMPLE 里 thresholdRatio 恰好 1 处（第 7 行）
+  ✔ readThresholdRatio 读出 0.15
+  ✔ 改成 0.2 成功，before/after 如实
+  ✔ ★ 只动了那一行的值：其余行逐字不变（含注释与缩进）
+  ✔ ★ 改完能回读校验（读回来就是 0.2）
+  ✔ 值没变 ⇒ changed:false（⛔ 不白写一次盘）
+  ✔ 目标值非法（0 / 1 / NaN）⇒ 拒绝
+  ✔ ★ 出现 2 次 ⇒ 拒绝改，原因里报出次数与行号
+  ✔ ★ 0 处 ⇒ 拒绝改（⛔ 不新增一行），原因说清"没有"
+  ✔ ★ 原值不是数字 ⇒ 拒绝改（不猜着替换）
+  ✔ ★ `thresholdRatio:` 后面接着块标量 ⇒ 不算我们要的那一行（count 0）
+  ✔ ★ 行尾注释与空格原样保留
+  ✔ ★ 带引号的原值能认能读（读 0.15）并换成 0.25
+  ✔ ★ CRLF 文件换行风格不被改写（仍是 \r\n）
+  ✔ ★ 反证："整份重写"会丢掉缩进（本判据抓得住）
+
+S5 部署预设的定位 / 拒绝改 / 备份 / 回读校验
+  ✔ findBackendPresets 只认挂着我们后端的那一份（按内容认，不写死 id）
+  ✔ readDeployedThresholdRatio ⇒ 0.15 + 路径 + presetId
+  ✔ 写成功：before 0.15 → after 0.2，带备份路径
+  ✔ 盘上真的写进去了（回读 = 0.2）
+  ✔ 备份文件存在且内容 = 改之前那一份（逐字节）
+  ✔ ★ 值没变时不动盘：changed:false 且**不产生备份**
+  ✔ ★ 两份候选 ⇒ 拒绝改，原因列出两份 id，且盘上没有被改动
+  ✔ ★ 拒绝改之后，两份候选都还是原值（0.2 / 0.15 —— 一个字都没动）
+  ✔ 预设根目录不存在 ⇒ 如实 ok:false + 原因（⛔ 不抛）
+  ✔ 目录在但一份都没挂我们的后端 ⇒ 如实 ok:false + 原因
+  ✔ compactionNotes 三条：立刻生效 / 估算（含输出token、略早）/ 超限无视阈值
+  ✔ ★ 反证：拿掉第 3 句（超限强制压）⇒ 同一条判据必红
+  ✔ compactionNotes：面板关着时多一条"走预设原值"的如实说明
+  ✔ compactionNotes：预设读不到 / 有读错原因时，各多一条如实说明
+
+S6 生成物：覆写 + 无 # 私有成员 + 读不到就用 YAML 原值
+  ✔ ★ 生成物里定义了 compactIfNeeded（裸方法名，不带 function 关键字）
+  ✔ ★ 覆写体里调了 super.compactIfNeeded(...)
+  ✔ ★ 反证：把 super 调用那一行挖掉 ⇒ 同一条判据必红
+  ✔ ★ 覆写体把 super 的失败记进日志（logCompactionFailure）后照原样 rethrow
+  ✔ ★ 反证：把 logCompactionFailure 那一行挖掉 ⇒ 同一条判据必红
+  ✔ ★ 产物里导出了 logCompactionFailure（自检/面板要能调它）
+  ✔ ★ 两档都在，且顺序是 主档(RP) → 兜底(official)
+  ✔ ★ 反证：把主档那一档挖掉 ⇒ 同一条判据必红（顺序断档）
+  ✔ ★ 兜底 = 官方那条（await super.summarize(input, agent, signal)）
+  ✔ ★ 反证：把兜底那一行挖掉 ⇒ 同一条判据必红
+  ✔ ★ 主档只有一处组装调用，且**没有** withSource 实参（旧脚手架的那两个 false/true 调用点已删）
+  ✔ ★ 反证：把 withSource 实参塞回去（旧写法）⇒ 同一条判据必红
+  ✔ ★ 两档全失败 ⇒ 兜底那一档的 catch 原样 throw（⛔ 不吞成静默成功）
+  ✔ ★ 反证：把兜底的 throw 换成 return null ⇒ 同一条判据必红
+  ✔ ★ 两档各有一行「谁走通了」note（logCompactionNote）
+  ✔ ★ 反证：把兜底那行 note 挖掉 ⇒ "两档各有一行 note" 必红
+  ✔ ★ 产物里导出了 logCompactionNote（谁走通了那行证据靠它落盘）
+[mt-compaction-rp] ★★★ 降级：拿不到官方包，本 preset 将回落（详见 degraded 导出）:
+mt-compaction-rp: cannot load host module "@deepseek-ai/dsh-compaction-basic" from the running host.
+  - D:\apps\deepseek\dsh-memory-archive\_selftest-compaction-threshold.mjs: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+  - D:\apps\deepseek\dsh-memory-archive\apps\cli\src\bin.ts: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+  - D:\apps\deepseek\dsh-memory-archive\apps\cli\package.json: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+  - D:\apps\deepseek\dsh-memory-archive\packages\bundle\base\package.json: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+  - D:\apps\deepseek\dsh-memory-archive: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+
+mt-compaction-rp: cannot load host module "@deepseek-ai/dsh-llm" from the running host.
+  - D:\apps\deepseek\dsh-memory-archive\_selftest-compaction-threshold.mjs: Cannot find module '@deepseek-ai/dsh-llm'
+  - D:\apps\deepseek\dsh-memory-archive\apps\cli\src\bin.ts: Cannot find module '@deepseek-ai/dsh-llm'
+  - D:\apps\deepseek\dsh-memory-archive\apps\cli\package.json: Cannot find module '@deepseek-ai/dsh-llm'
+  - D:\apps\deepseek\dsh-memory-archive\packages\bundle\base\package.json: Cannot find module '@deepseek-ai/dsh-llm'
+  - D:\apps\deepseek\dsh-memory-archive: Cannot find module '@deepseek-ai/dsh-llm'
+  ✔ ★ logCompactionFailure 对畸形输入/全坏 ctx 也绝不抛（记日志失败不许影响压缩）
+  ✔ ★ 反证：真写进去了（临时 home 下的日志文件存在且含 trigger=pressure）
+  ✔ ★ 反证：同样输入喂给「会抛的实现」⇒ 必红
+  ✔ ★ finishError 对 undefined / null 的 finish 有兜底（当"正常结束"，不读 .kind）
+  ✔ ★ 反证：把那行兜底挖掉 ⇒ 同一条判据必红
+[mt-compaction-rp] ★★★ 降级：拿不到官方包，本 preset 将回落（详见 degraded 导出）:
+mt-compaction-rp: cannot load host module "@deepseek-ai/dsh-compaction-basic" from the running host.
+  - D:\apps\deepseek\dsh-memory-archive\_selftest-compaction-threshold.mjs: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+  - D:\apps\deepseek\dsh-memory-archive\apps\cli\src\bin.ts: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+  - D:\apps\deepseek\dsh-memory-archive\apps\cli\package.json: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+  - D:\apps\deepseek\dsh-memory-archive\packages\bundle\base\package.json: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+  - D:\apps\deepseek\dsh-memory-archive: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+
+mt-compaction-rp: cannot load host module "@deepseek-ai/dsh-llm" from the running host.
+  - D:\apps\deepseek\dsh-memory-archive\_selftest-compaction-threshold.mjs: Cannot find module '@deepseek-ai/dsh-llm'
+  - D:\apps\deepseek\dsh-memory-archive\apps\cli\src\bin.ts: Cannot find module '@deepseek-ai/dsh-llm'
+  - D:\apps\deepseek\dsh-memory-archive\apps\cli\package.json: Cannot find module '@deepseek-ai/dsh-llm'
+  - D:\apps\deepseek\dsh-memory-archive\packages\bundle\base\package.json: Cannot find module '@deepseek-ai/dsh-llm'
+  - D:\apps\deepseek\dsh-memory-archive: Cannot find module '@deepseek-ai/dsh-llm'
+  ✔ ★ 产物里导出了 readFinish（取 finish 的兜底闸）
+  ✔ ★ readFinish 对「取值就抛」的 getter ⇒ 给 {kind:"stop"} 且带 unreadable（⛔ 不抛）
+  ✔ ★ readFinish 对缺字段 / null / undefined ⇒ {kind:"stop"}
+  ✔ ★ readFinish 对正常 finish ⇒ 原样透传（不许把真错吞成 stop）
+  ✔ ★ 反证：「直接 assembler.finish」那种写法在同一输入上必抛（证明这条闸有用）
+  ✔ ★ 全文件没有一个 `#` 哈希私有成员（有 ⇒ 经 cordis Proxy 调用必抛品牌错）
+  ✔ ★ 反证：往产物里塞一个 `#x = 1;` ⇒ 同一条判据必红
+  ✔ ★ 公开属性（不用 #）：officialConfig / baseConfig / panelThresholdReason 都在构造里赋值
+[mt-compaction-rp] ★★★ 降级：拿不到官方包，本 preset 将回落（详见 degraded 导出）:
+mt-compaction-rp: cannot load host module "@deepseek-ai/dsh-compaction-basic" from the running host.
+  - D:\apps\deepseek\dsh-memory-archive\_selftest-compaction-threshold.mjs: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+  - D:\apps\deepseek\dsh-memory-archive\apps\cli\src\bin.ts: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+  - D:\apps\deepseek\dsh-memory-archive\apps\cli\package.json: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+  - D:\apps\deepseek\dsh-memory-archive\packages\bundle\base\package.json: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+  - D:\apps\deepseek\dsh-memory-archive: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+
+mt-compaction-rp: cannot load host module "@deepseek-ai/dsh-llm" from the running host.
+  - D:\apps\deepseek\dsh-memory-archive\_selftest-compaction-threshold.mjs: Cannot find module '@deepseek-ai/dsh-llm'
+  - D:\apps\deepseek\dsh-memory-archive\apps\cli\src\bin.ts: Cannot find module '@deepseek-ai/dsh-llm'
+  - D:\apps\deepseek\dsh-memory-archive\apps\cli\package.json: Cannot find module '@deepseek-ai/dsh-llm'
+  - D:\apps\deepseek\dsh-memory-archive\packages\bundle\base\package.json: Cannot find module '@deepseek-ai/dsh-llm'
+  - D:\apps\deepseek\dsh-memory-archive: Cannot find module '@deepseek-ai/dsh-llm'
+  ✔ 生成物导出了 applyPanelThreshold / readPanelAutoCompact（自检台可直测的纯函数）
+  ✔ 读不到文件（传 null） ⇒ 用 YAML 原值（thresholdRatio 0.15 + retainTokens 8000，⛔ 不是官方 0.8）
+  ✔ 空文本 ⇒ 用 YAML 原值（thresholdRatio 0.15 + retainTokens 8000，⛔ 不是官方 0.8）
+  ✔ JSON 坏 ⇒ 用 YAML 原值（thresholdRatio 0.15 + retainTokens 8000，⛔ 不是官方 0.8）
+  ✔ JSON 是数组 ⇒ 用 YAML 原值（thresholdRatio 0.15 + retainTokens 8000，⛔ 不是官方 0.8）
+  ✔ 没有 autoCompact 这一段 ⇒ 用 YAML 原值（thresholdRatio 0.15 + retainTokens 8000，⛔ 不是官方 0.8）
+  ✔ autoCompact 是 null ⇒ 用 YAML 原值（thresholdRatio 0.15 + retainTokens 8000，⛔ 不是官方 0.8）
+  ✔ ★ usePanelThreshold 为 false ⇒ 也用 YAML 原值（面板上那个 20% 不生效）
+  ✔ ★ 开关开着 + 20% ⇒ 整体替换：thresholdRatio 0.2 + retainRatio 0.05，**删掉互斥的 retainTokens**
+  ✔ ★ 替换出来的是**新对象**（⛔ 没原地改那份 deepFreeze 的 ResolvedConfig）
+  ✔ ★ 幂等：同样的输入连算两次结果逐字段相同
+  ✔ ★ 玩家调到 5% ⇒ retainRatio 被夹到 0.035（严格小于 0.05，不撞官方不变量）
+  ✔ ★ 面板开着但阈值不是数 ⇒ 用 YAML 原值 + 人话原因（⛔ 不猜一个数顶上）
+  ✔ ★ 盘上写着 999（越界）⇒ 读盘侧就夹到 90%（0.9），不至于让引擎拿到非法比例
+  ✔ ★ 反证：不删 retainTokens 的实现会被"互斥键必须去掉"抓住（官方 resolveConfig 会直接抛）
+
+S7 路径等价：宿主 storageDir() vs 生成物 panelStorageDir()
+[mt-compaction-rp] ★★★ 降级：拿不到官方包，本 preset 将回落（详见 degraded 导出）:
+mt-compaction-rp: cannot load host module "@deepseek-ai/dsh-compaction-basic" from the running host.
+  - D:\apps\deepseek\dsh-memory-archive\_selftest-compaction-threshold.mjs: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+  - D:\apps\deepseek\dsh-memory-archive\apps\cli\src\bin.ts: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+  - D:\apps\deepseek\dsh-memory-archive\apps\cli\package.json: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+  - D:\apps\deepseek\dsh-memory-archive\packages\bundle\base\package.json: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+  - D:\apps\deepseek\dsh-memory-archive: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+
+mt-compaction-rp: cannot load host module "@deepseek-ai/dsh-llm" from the running host.
+  - D:\apps\deepseek\dsh-memory-archive\_selftest-compaction-threshold.mjs: Cannot find module '@deepseek-ai/dsh-llm'
+  - D:\apps\deepseek\dsh-memory-archive\apps\cli\src\bin.ts: Cannot find module '@deepseek-ai/dsh-llm'
+  - D:\apps\deepseek\dsh-memory-archive\apps\cli\package.json: Cannot find module '@deepseek-ai/dsh-llm'
+  - D:\apps\deepseek\dsh-memory-archive\packages\bundle\base\package.json: Cannot find module '@deepseek-ai/dsh-llm'
+  - D:\apps\deepseek\dsh-memory-archive: Cannot find module '@deepseek-ai/dsh-llm'
+  ✔ DSH_HOME 指向空目录 ⇒ 两边同一个绝对路径
+  ✔ DSH_HOME 带尾斜杠 ⇒ 两边同一个绝对路径
+  ✔ DSH_HOME 两边目录都在（取新名） ⇒ 两边同一个绝对路径
+  ✔ DSH_HOME 只有旧名目录（回退） ⇒ 两边同一个绝对路径
+  ✔ DSH_HOME = 空串（等同没设） ⇒ 两边同一个绝对路径
+  ✔ DSH_HOME = 空白串（等同没设） ⇒ 两边同一个绝对路径
+  ✔ DSH_HOME 未设置 ⇒ 两边同一个绝对路径
+  ✔ DSH_HOME = ~ ⇒ 两边同一个绝对路径
+  ✔ ★ 反证：不回退旧名的实现在"只有旧名目录"这组上会被抓出来（判据不是橡皮章）
+  ✔ ★ 真机部署里那份副本的路径推导入参形状一致（导出存在）
+
+S8 ★ 端到端：真引擎 + 真读盘 ⇒ 二分测出触发点真的移动了（窗口 128k）
+  ✔ E2E 子进程跑通（真引擎 + 真读盘）
+  ✔ ★ 面板 15% ⇒ 触发点 19200 = 0.15 × 128000（与预设原值同一点）
+  ✔ ★ 面板 20% ⇒ 触发点 25600 = 0.2 × 128000（**真的往后挪了 6400**）
+  ✔ ★ 生效的不是官方默认 0.8（那会是 102400）
+  ✔ ★ 同一进程里**每一轮都现读**：盘上改成 40% ⇒ 第二次测出的触发点变成 51200（不用重启、不用重开会话）
+  ✔ ★ config 里 effective 的是比例式（thresholdRatio 0.2 + retainRatio 0.05，retainTokens 已被去掉）
+  ✔ ★ 开关关掉 ⇒ 回到预设 YAML 那两个数（0.15 + retainRatio 0.05，触发点 19200）
+  ✔ ★ 配置文件是坏 JSON ⇒ 同样回预设原值（触发点 19200），⛔ 不退回官方默认 0.8
+  ✔ ★ 根本没有配置文件 ⇒ 同样回预设原值（触发点 19200）
+  ✔ ★★ 主档（RP）请求里**每条消息都带 source**（这就是真机事故的修复点）
+  ✔ ★ 假流只对主档成功 ⇒ 只试一档、拿主档的结果、note 写「summarize-rp 成功」
+  ✔ ★★ 主档被拒 ⇒ 走兜底（第二档 = 官方形状），返回**兜底那条**的结果、note 写「走兜底」
+  ✔ ★ 主档那一档的失败也落盘了（trigger=summarize-rp，带请求形状）
+  ✔ ★ 反证：假流只对主档成功时**不该**出现兜底那次调用（没有第二档）
+  ✔ ★★ 两档全失败 ⇒ 抛的是**兜底那条**（attempt-2）的错，⛔ 不吞
+  ✔ ★ 两档全失败时，两条失败都落盘（summarize-rp / -official 各一条）
+  ✔ ★★ 两档的请求形状各就各位：主档 = 我们那条（6 条、system 被摘掉、无 tools、全带 source）；兜底 = 官方形状（5 条、system 原样还在）
+
+S9 端点级：GET /compaction/state 与 POST /compaction/config（真 HTTP + 假服务）
+  ✔ GET /config 投影出 autoCompact（默认开 + 15%）
+  ✔ ★ GET /compaction/state：percent 走官方公式（52000/128000 ⇒ 41）、triggerPercent 走计量（60160 ⇒ 47）——**两个数确实不同**
+  ✔ ★ 预设阈值是从**部署的 YAML**里读出来的（0.15）+ 生效阈值折算成 token（0.15×128000 = 19200）
+  ✔ 没有 sessionId ⇒ 200 + percent/triggerPercent 都是 null + readError 说清原因（⛔ 不给 0）
+  ✔ 会话不在活注册表里 ⇒ percent null + readError 点名"活会话注册表"
+  ✔ notes 是宿主给的如实说明（立刻生效 / 估算略早 / 超限无视阈值 —— 逐字）
+  ✔ ★ POST /compaction/config：两件事都写成（config.ok 与 yaml.ok 同时 true）
+  ✔ ★ config.json 里落了 autoCompact（20% + 开关开）
+  ✔ ★ 部署的预设 YAML 只改了那一行（0.15 → 0.2，注释缩进原样）
+  ✔ ★ 改预设前留了 .bak-<时间戳> 备份
+  ✔ ★ 同一个值再存一次 ⇒ yaml.changed:false（不白改一次盘），config 仍 ok
+  ✔ ★ 越界 999 ⇒ 夹到 90%（config 与 yaml 都是 0.9，并在 config.reason 里如实说明夹过）
+  ✔ ★★ 两件事各自如实：预设里 2 处 thresholdRatio ⇒ yaml.ok:false（拒绝改、盘上没动），**而 config.ok:true**（写成了 35% / 开关关）
+  ✔ ★ 盘上写着非法值（"yes" / 999）⇒ sanitize 如实回落：开关仍是**开**（不是被 "yes" 顶成关）、百分比夹到 90 并记进 configError
+  ✔ ★ 夹紧后的 90% 真的进了实时读数（thresholdTokens = 0.9 × 128000 = 115200）
+
+S10 ★ 请求形状：每条消息都必须带 source（纯函数直测，相 + 反证）
+[mt-compaction-rp] ★★★ 降级：拿不到官方包，本 preset 将回落（详见 degraded 导出）:
+mt-compaction-rp: cannot load host module "@deepseek-ai/dsh-compaction-basic" from the running host.
+  - D:\apps\deepseek\dsh-memory-archive\_selftest-compaction-threshold.mjs: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+  - D:\apps\deepseek\dsh-memory-archive\apps\cli\src\bin.ts: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+  - D:\apps\deepseek\dsh-memory-archive\apps\cli\package.json: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+  - D:\apps\deepseek\dsh-memory-archive\packages\bundle\base\package.json: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+  - D:\apps\deepseek\dsh-memory-archive: Cannot find module '@deepseek-ai/dsh-compaction-basic'
+
+mt-compaction-rp: cannot load host module "@deepseek-ai/dsh-llm" from the running host.
+  - D:\apps\deepseek\dsh-memory-archive\_selftest-compaction-threshold.mjs: Cannot find module '@deepseek-ai/dsh-llm'
+  - D:\apps\deepseek\dsh-memory-archive\apps\cli\src\bin.ts: Cannot find module '@deepseek-ai/dsh-llm'
+  - D:\apps\deepseek\dsh-memory-archive\apps\cli\package.json: Cannot find module '@deepseek-ai/dsh-llm'
+  - D:\apps\deepseek\dsh-memory-archive\packages\bundle\base\package.json: Cannot find module '@deepseek-ai/dsh-llm'
+  - D:\apps\deepseek\dsh-memory-archive: Cannot find module '@deepseek-ai/dsh-llm'
+  ✔ ★ 产物导出了 buildRpSummaryMessages（组装请求的纯函数）
+  ✔ ★★ 请求里**每条消息都带 source**（describeMessages 里 0 个 MISSING）
+  ✔ ★ 反证：把任一条的 source 摘掉 ⇒ 同一条判据必红（形状里就会出现 MISSING）
+  ✔ ★ 会话消息搬的是**原来那条的 source**（引用级相同：user 与 model 各一条）
+  ✔ ★ 我们自己那几条（包裹 / 开闭标签 / 指令）统一 plugin source，plugin 名 = mt-compaction-rp
+  ✔ ★ 对「原来就没有 source」的消息**补 plugin source**（不变量优先于"形状如实"）
+  ✔ ★ 反证：一个"照抄 undefined"（不补）的实现会漏出 MISSING ⇒ 证明这条不变量会咬人
+  ✔ ★ 过滤规则一个字没动：系统提示词 / 思维链 / 工具参数 / checkpoint 原文都不在请求里
+  ✔ ★ previous_summary 标签就位（抠出来的上一份摘要只在那一条里）
+  ✔ ★ renderSummaryInput 只有一种形状：返回的消息都带原来的 source（诊断开关已删）
+
+== 总结：205 通过 / 0 失败 ==
+  ✔ _selftest-compaction-threshold.mjs
+
+A 纯逻辑层（lib/deadzone.js 直测）
+  ✔ A1 块切法：按空行切、块内换行保留、首尾空行不参与、CRLF 与 LF 等价
+  ✔ A2 段首行 = 第一行（trim 后截断）
+  ✔ A3 注入那句：没有死区 ⇒ 空串（⛔ 不注入半句）
+  ✔ A4 注入那句：逐字是用户给的形状（文件名 + 首行原文 + "只有追加权"）
+  ✔ A4b ★ 死区那句只对"被划定的那两段"说话（作用域三件套俱全：文件名 + 段首行 + "在它们之外"）
+  ✔ A5 落盘裁决 · 纯函数五连拒：体坏 / 扩展名 / 不存在 / 带 sha 但盘上变了 / 没带 sha
+  ✔ A6 落盘裁决 · 对得上才放行，且回执给 bytes / sha
+  ✔ A7 快照刷新：用户改掉死区块本身 ⇒ 快照跟着走（sha 更新、条数不变）
+  ✔ A8 快照刷新：那一段被作者整段删掉 ⇒ 解除该条并如实报（⛔ 不硬留一条查不到的）
+  ✔ A9 文档自愈：手改过的 doc（text 还在、sha 对不上）以 text 为准重算
+  ✔ A10 文档容错：认不出的条目一律丢弃；坏 JSON / 读不到由 readDocFile 如实报（⛔ 不折成"没有死区"）
+
+B 八对判据（任务书 §3；走真 HTTP + 真盘面）
+  ✔ B1 相｜死区块未动 ⇒ status=ok、changed 空、每条都是 ok
+  ✔ B1b 死区块的数量与身份如实（两条，都指 index.md、带快照 sha）
+  ✔ B1c ★反证｜死区块里改一个字符 ⇒ 必告警（status=changed、指得出哪份文件哪一段、两个 sha 都在）
+  ✔ B1d ★ 告警文案**不定性**（不说"模型干的"）：状态端点给的是事实，日志那条自己带"也可能是你在别处改过"
+  ✔ B1e ★ 检测**只读**：查完之后死区文档里那条快照 sha**一个字都没动**（判据咬的是内容，⛔ 不是"改过"这件事）
+  ✔ B1f 改回原样 ⇒ status 回 ok（⛔ 不是"改过一次就永远红着"）
+  ✔ B2 相｜只改非死区块 ⇒ 不告警（死区之外是作者的，随便改）
+  ✔ B2b ★反证｜同一夹具下动死区块 ⇒ 立刻 changed（B2 不是永远绿）
+  ✔ B3 相｜面板保存成功 ⇒ 回执如实（bytes/sha/备份名/刷新了几条死区）
+  ✔ B3b ★★ 用户自己改的（含死区块被改）⇒ 保存后快照跟着走、状态回一致、**不告警**
+  ✔ B3c 快照真的换了新 sha（刷新不是嘴上说说）
+  ✔ B3d ★反证｜抽掉"保存时刷新快照"这一步（直接改盘、不走端点）⇒ 同一次操作必告警（这条判据在咬人）
+  ✔ B3e ★ 结构性反证：保存那条路上**必须**有 refreshAfterEdit（挖掉它这条就不成立）
+  ✔ B4a 段 mt:memoryHome 在（假 ctx 驱动真实 apply ⇒ 段是真的注册进来的）
+  ✔ B4b 相｜注入面：段里有**文件名 + 那段首行原文 + "只有追加权"那句**
+  ✔ B4c ★ 死区**原文整段**不进注入（只给首行摘要 —— 别把上下文撑爆）
+  ✔ B4d 不是本会话的会话（认不出周目）⇒ 段里一个字都不注
+  ✔ B4e ★反证｜没有死区 ⇒ 那行**不出现**（注入面是"有事才说话"）
+  ✔ B5 相｜合法文件 ⇒ 写盘成功 + 回执含 bytes/sha/备份名 + 响应里**没有正文**
+  ✔ B5b ★ 盘上就是新文（逐字节）
+  ✔ B5c ★ 写前备份真的落在原地，且内容是**改前**那一份（复制留档，⛔ 不销毁）
+  ✔ B5c2 ★ 备份名带毫秒戳（同一秒里连点两次保存也不会互相盖掉备份）
+  ✔ B5d ★ 备份名进不了面板清单（扩展名不在表里 ⇒ 不会被当笔记读/写）
+  ✔ B5e ★反证｜抽掉备份那一步：同一夹具下不备份就没有 .bak-（证明 B5c 咬的是那一步，不是别的东西）
+  ✔ B5f ★ 结构性反证：备份必须发生在写盘**之前**（顺序反了就等于没备份）
+  ✔ B6 ★反证｜路径穿越 / 绝对路径 / 别的扩展名 / 保留名 / 点开头 / 空名 ⇒ 一律拒（400/404），⛔ 不写出去
+  ✔ B6b ★ 拒完之后盘上**一个字节都没变**，目录里也没多出文件
+  ✔ B6c 读侧同口径：这些名字在 `?file=` 上也一律拒（同一条裁决，⛔ 两处各写一遍）
+  ✔ B7 相｜sha256 与盘上不符 ⇒ **409** + 可读文案（含"先刷新再改"）
+  ✔ B7b ★ 盘上文件一个字节没变（⛔ 绝不静默覆盖）
+  ✔ B7c ★反证｜把乐观锁那一步挖掉（同一夹具、同一形状的写入直落盘）⇒ "盘上没变"这句必红
+  ✔ B7d ★ 结构性反证：乐观锁判据只认"重算 sha 再比"，⛔ 不认 mtime / 不认"文件被改过"
+  ✔ B8 相｜死区被改 ⇒ 告警在（changed + 指得出哪一段）
+  ✔ B8b ★★反证｜谁都不许替用户改回去：查完之后盘上**逐字节还是被改过的那一份**
+  ✔ B8c ★★ 走完全部端点（现状/清单/加死区/原样保存）之后，那一份仍然是**用户/模型留下的原文**（没被悄悄还原）
+  ✔ B8d ★ 结构性反证：告警那条路上**没有任何**"把快照写回文件"的调用
+
+C 接线纪律（任务书 §2.4：每轮至多一次 / 不阻塞 / 不每轮重写状态文件）
+  ✔ C1 ★ 真接线｜这一轮的比对**不占本轮时间**：调 next() 那一刻还没有告警，让出事件循环之后才有
+  ✔ C1b ★ 结果变了 ⇒ 告警一条（日志如实记）+ 结果文件落盘给面板读
+  ✔ C2 ★ 每一轮至多一次：同一 turn 里再驱动两次装配 ⇒ 不再比对、不再告警、不重写状态文件
+  ✔ C2b ★ 换一轮（turn=2）但**结果没变** ⇒ 依然不刷状态文件、也不重复告警
+  ✔ C3 ★ 结果又变了 ⇒ 又告警一条 + 状态文件重写（at 换了新的）
+  ✔ C3b ★ 那条告警**不定性**（如实说"可能是模型改的，也可能是你在别处改过"，⛔ 不断言模型违规）
+  ✔ C3c 死区改回原样 ⇒ 状态文件被更新成"一致"，⛔ 但**不告警**（告警只在真的不一致时）
+  ✔ C4 ★★ 不许每轮重写状态文件：后两轮里结果没变 ⇒ 那份文件连 at 都没动
+  ✔ C4b 结果文件里只有计数/定位/sha，⛔ 不含正文片段（状态文件不是又一份笔记）
+  ✔ C5 ★ 结构性反证：看门那条路上**没有 await**（不许阻塞轮次），且比对是排到本轮之外发出去的
+
+D 面板侧契约（端点形状/口径，供客户端照抄）
+  ✔ D1 清单每行带 deadzones 条数 + writable（面板据此画锁标与编辑入口）
+  ✔ D2 单文件响应带 sha256 + 逐块（块里有 sha/firstLine/dead/text）+ writable
+  ✔ D2b 块的 sha 与"那一段原文"一致（面板拿它当死区身份证）
+  ✔ D3 GET /deadzones：条数与每条的 file/firstLine/sha256/chars，⛔ 不回快照正文（没有 text 字段）
+  ✔ D4 三对端点都过同一份名字裁决：read / write / deadzones 对同一个坏名字口径一致
+  ✔ D5 死区数据文件用的是点开头的我们自己的名字（⛔ 不是 .md/.txt，免得被当笔记读）
+  ✔ D6 死区文档进出都不带正文的**绝对路径**（面板响应里不出现 WS）
+  ✔ D7 端点表与分派各一处（⛔ 不两处各写一遍）
+  ✔ D8 面板那档的只读纪律没被打破：清单端点**一个字节正文都不带**
+
+E 真机形状（落点在共用那份：<工作区根>/.roleplay-memory）
+  ✔ E1 周目目录那份不在 ⇒ 面板按候选链落到共用那份（base=workspace-root + sharedHint）
+  ✔ E2 ★ 注入面照旧：死区在共用那份上时，那行**照样出现**，并额外点明它在哪处目录（否则模型会去错目录找）
+  ✔ E3 死区现状在共用那份上照样算得出来（2 条、一致）
+  ✔ E4 ★ 直接编辑落在**共用那份**上（写盘 + 备份都在同一处目录）
+  ✔ E5 ★ 用户自己改的 ⇒ 快照跟着走，状态仍是"一致"（⛔ 不许因为改在共用那份上就误报）
+
+== 总结：71 通过 / 0 失败 ==
+  ✔ _selftest-deadzone.mjs
+== _selftest-deferred-install.mjs · 延迟挂载自检 ==
+[PASS] D1 版本是正整数
+[PASS] D2 ★ 反证：缺 on/run ⇒ 不抛、mode=unavailable、dispose 安全
+[PASS] D3 会话事件之前：哨兵干活，mode=upstream-sentinel
+[PASS] D4 ★★ 关键：会话事件之后，**同一个瀑布调用只跑一次**（哨兵透传、下游版干活）
+[PASS] D5 ★ 下游版确实**排在最后**（= 看得见其它插件在下游加的东西）
+[PASS] D6 ★ 反证：**从不派发会话事件**时，哨兵继续干活（⛔ 不许静默失效）
+[PASS] D7 ★ 反证：多次会话事件**只追加一次**下游版（不许越挂越多）
+[PASS] D8 ★ 反证：on 抛错时只降级、不抛出去（注册失败也不能拖垮插件）
+[PASS] D9 dispose 把两个监听都摘掉
+
+== 汇总：9 通过 / 0 失败 ==
+  ✔ _selftest-deferred-install.mjs
+[PASS] ① a. `lib/echo-index.js` 与 `lib/echo-inject.js` 两个文件都已删除
+[PASS] ① b. `lib/` 下活代码里再无 FTS5 引擎的**承重标识符**（连库/建表/入库/抽词）
+[PASS] ① c. ★反证：把 FTS5 的建表语句当活代码放回 ⇒ ①b 的判据必须红（证明它不是空跑）
+[PASS] ② a. `dma:echo` 不在我们的段名册里（活代码），且不再有 registerEcho / echoModules
+[PASS] ② b. ★反证：把 `dma:echo` 放回名册 ⇒ 同一条表达式必须红
+[PASS] ② c. 保留的那一件（读归档楼层）还在、且只有一份实现 —— lastFloors 仍能用
+[PASS] ③ a. ★向量档有「BM25 已退役」那一行（⛔ 不是删掉走人）
+[PASS] ③ b. 面板不再认 BM25 两个动作（重建:bm25 / 删除 BM25 库）
+[PASS] ③ c. ★回响卡变成**退役说明**：有"已由 anima 接管"，且开关（dma-echo-enabled）已摘
+[PASS] ③ d. ★反证：把"已由 anima 接管"挖掉 ⇒ ③c 必须红
+[PASS] ④ a. 面板白名单（本仓）与 anima 侧**逐字一致**，且都不含 delete-bm25
+[PASS] ④ b. BM25 退役的**事实**由 vector-panel 导出（面板那一行读它，⛔ 不散落成字面量）
+[PASS] ④ c. 状态快照里不再有 `live.bm25`（有的话面板会读到一个永远"缺失"的库）
+[PASS] ④ d. 配置面：`echo` 段不再解析、不再接受写入，GET 投影**如实说退役**（含谁接管）
+[PASS] ④ e. ★反证：把 `retired: true` 那行挖掉 ⇒ ④d 必须红
+
+── 15 通过 / 0 失败 ──
+  ✔ _selftest-echo-retired.mjs
+== _selftest-editor-archive.mjs · 编辑器「已归档会话」自检 ==
+[PASS] ★1 /api/sessions：每行 archived ∈ {true,false,null}（与 provider 逐 id 对上）+ 信封 {known:true,archivedCount}
+[PASS] ★★2 反证A（缓存不烤位）绿：30 秒窗口内两次 /api/sessions 之间换 provider ⇒ 第二次 archived 跟变、信封 archivedCount 跟变
+[PASS] ★★2 反证A 红：把位烤进「扫描缓存」的坏变体（listSessions 只在首调解析归档位）跑同一条断言必须抛 —— 证明断言不是橡皮图章
+[PASS] ★★3 反证B（未知 ≠ 未归档）绿：provider 抛错 / {known:false} / 没传 ⇒ 全行 archived===null、known:false、archivedCount:0
+[PASS] ★★3 反证B 红：把未知折成「未归档」（null→false）的坏变体跑同一条 null 断言必须抛
+[PASS] ★4 /api/sessions/resolve 与 /api/session 也带归档位（known:true ⇒ true/false；未知 ⇒ null）
+[PASS] ★5 客户端默认隐藏：archived===true 的行不渲染（可见 2/4），顶部开关文案「显示已归档（2）」
+[PASS] ★6 开关打开（hook #3=true）：归档行回来、置灰（opacity）、「已归档」徽标、原序保持（n1,a1,a2,n2）
+[PASS] ★★7 反证C（选中项）绿：选中的已归档会话（a1）在开关关闭时仍可见（data-sel=1），另一个归档行（a2）照藏
+[PASS] ★★7 反证C 红：漏掉「选中豁免」的坏谓词跑同一条可见断言必须抛
+[PASS] ★8 客户端 known:false：一条不隐藏（4/4 全显）+「归档状态不可用（已按普通会话显示）」小字；信封缺失同样全显
+[PASS] ★9 详情页顶部提示：「该会话已归档（日志仍在，内容照常可读）」只在 detail.archived===true 出现；null 不猜
+[PASS] ★10 合并不写源行：缓存行对象即使被冻结也不抛、源行不 gain archived 键（位不进索引缓存的结构性证明）
+[PASS] ★11 /api/sessions?titles=1：每行 archived ∈ {true,false}（与注册表逐 id 对上）+ 信封 archive:{known:true,archivedCount}，原字段（sessionId/title/updatedAt/cwd/origin）原样保留
+[PASS] ★★12 反证C（titlesCache 不烤位）绿：同一 handler、同一 titles 缓存窗口内换注册表 ⇒ 第二次 archived/archivedCount 跟变；且第二次 listSessions 没再跑（确证位不是重投影算出来的）
+[PASS] ★★12 反证C 红：把位烤进 titles 投影的坏变体跑同一条跟变断言必须抛 —— 证明断言不是橡皮图章
+[PASS] ★★13 反证B（未知 ≠ 未归档）绿：注册表 getter 抛错 / ids 非数组 / ctx.get 全抛 ⇒ 全行 archived===null、known:false、archivedCount:0；titles=0 快路径同样带位
+[PASS] ★★13 反证B 红：把未知折成「未归档」（null→false）的坏变体跑同一条 null 断言必须抛
+[PASS] ★14 选根下拉默认不隐藏：1 归档 + 2 普通 ⇒ 3 个 option 全在（⛔ 不是 2）；归档行【已归档】徽标 + 置灰 + title 写明口径；普通行不受牵连
+[PASS] ★★14 反证B（客户端）：known:false ⇒ 一行都不标（3 个 option 全在但无徽标无置灰）+「归档状态不可用（已按普通会话显示）」小字；信封缺失（archiveKnown:false）同口径
+[PASS] ★★14 反证 红：「默认隐藏归档行」的坏变体跑同一条 3/3 全显断言必须抛 —— 钉死「不许加默认过滤」
+[PASS] ★15 /config 根回显：未配置 ⇒ root===null（反证B 服务半侧，⛔ 不编空串/对象占位）；PUT root 后 GET 原样回显；清空（空串归一成 null）⇒ root 回 null
+[PASS] ★16 保存后不回弹（客户端半侧）：config.root 回显 ⇒ select 停在已存根（value=根 id，不落占位项）；root=null ⇒ 回落占位项（value=''）
+[PASS] ★17 rootArchiveHint 文案（只提示口径）：会话根+已知+已归档 ⇒ 一句话；未知/未归档/工作区根 ⇒ null（反证A 文案半侧）
+[PASS] ★17 反证 红：不看 known、只看 archived 的坏文案函数跑同一条 null 断言必须抛 —— 证明断言不是橡皮图章
+== 汇总：25 通过 / 0 失败 ==
+  ✔ _selftest-editor-archive.mjs
+[PASS] ★1 readHashLink：只认 sess/turn/box/sec，其余忽略；坏的 turn/box 不当真
+[PASS] ★2 formatHashLink：键序稳定、空状态给空串（⛔ 不留裸 #）
+[PASS] ★3 深链往返自洽：read(format(x)) 与 x 等价（截断到已知键）
+[PASS] ★3b sectionNameOf：地图块（key=sec:<名>）能取回段名；取不到给空串（⛔ 不编）
+[PASS] ★4 事实说明书：≥6 节且每节有标题+正文；四条关键判据必须讲到
+[PASS] ★5 summarizeDiagnostics：健康/坏形状 ⇒ 空；正常 ⇒ 按严重度排序 + counts + 证据进 tooltip
+[PASS] ★6 诊断：日志读不了 ⇒ log-unreadable(error) 且带 detail 行号/seq（不许只说"读不了"）
+[PASS] ★7 诊断：没捕获 ⇒ no-capture-record(warn)，且说明"旧楼不会自动补"
+[PASS] ★8 诊断：完整捕获（offset+凭据齐、0 字段段 offset=null）⇒ 不报错也不报缺
+[PASS] ★9 反证A：0 字段的段带了 offset ⇒ offset-on-empty-section(error)（契约不许破）
+[PASS] ★10 反证B：长度算式与记录对不上 ⇒ length-arithmetic-mismatch(error)
+[PASS] ★11 反证C：归档读不到 ⇒ archive-unknown(info)，⛔ 不许冒充"未归档"；注册表说归档 ⇒ archived(info)
+[PASS] ★12 缺 sessionId ⇒ 400 bad-request（参数错是客户端的事，不是 200）
+[PASS] ★13 反证D：「会话不存在」不许报成「日志读不了」（假指控）
+[PASS] ★14 /api/tool：只交被点开的那一条（原样 JSON），并说明来源是自带 header 还是沿用上一楼
+[PASS] ★15 反证A：该楼没有这个工具名 ⇒ no-such-tool（不是空文本、不是 ok:true）
+[PASS] ★15b 反证A2：原文超上限 ⇒ tool-text-omitted（⛔ 不许截断冒充全文；清单仍在）
+[PASS] ★16 反证B：日志读不了 ⇒ /api/tool 也走 session-parse-failed（⛔ 不许折成"没有工具"）
+[PASS] ★17 messages 出口带 sourceKind/playerTyped 与分开的计数（玩家/注入/未知；⛔ 拿不到 kind 不许当玩家）
+[PASS] ★18 导出注册表（M15）：带顺序的字段清单 —— 按 order 升序、三块分开、未知如实、含正文可选
+
+== 汇总：20 通过 / 0 失败 ==
+  ✔ _selftest-editor-nav.mjs
+  ✔ _selftest-fake-tavern.mjs
+== _selftest-final-text-locate.mjs · 最终正文定位自检 ==
+[PASS] L1 版本是正整数
+[PASS] L2 全命中：每段 offset 都指向它在最终正文里的真位置
+[PASS] L3 ★★ 中间夹着"我们没正文的段"（anima 情形）⇒ 后面的段仍定位正确
+[PASS] L4 ★ 反证：正文里**没有**的段 ⇒ offset=null（⛔ 不编 0、不拿上一次的位置顶）
+[PASS] L5 ★ 空段跳过、不占位（宿主也不会给 0 字段 offset）
+[PASS] L6 ★ 反证：短段在前面**重复出现**时，必须从游标往后找（不吃前面那个）
+[PASS] L7 反证：空正文 / 全空段 / 畸形输入 都不抛，并如实给 reason
+[PASS] L8 端到端：装配期段表（含拿不到正文的段）+ 最终正文 ⇒ 真位置
+[PASS] L9 ★★ 段被宿主改写 ⇒ 锚点定界给出正确区间，且内容 = **最终正文的切片**
+[PASS] L10 ★ 反证：锚点**找不到**（毫无共同前缀）⇒ 如实不发，不许硬塞区间
+[PASS] L11 ★ 反证：锚点与下一个锚点之间**还夹着未定位的非空段** ⇒ 拆不开，两个都不发
+[PASS] L12 ★ 锚点段在**尾**：终点取正文末尾（且它之后没有别的非空段）
+[PASS] L13 ★ 逐段原因码：四个失败码必须分得开（界面「为什么给不出位置」全靠它）
+
+== 汇总：13 通过 / 0 失败 ==
+  ✔ _selftest-final-text-locate.mjs
+
+A 纯逻辑层：行级 diff（lib/floor-snapshot.js 直测，⛔ 不碰文件系统）
+  ✔ A1 两侧同文 ⇒ **空 diff**（added 0 / removed 0 / lines []）；只差 `\r\n` ⇒ 也算同文；结尾那一个换行同理
+  ✔ A2 加一行 / 删一行各一相：增删各自如实计数，且**改动那两行**连上下文一起给出来
+  ✔ A3 上下文与省略：改动之外的远处那段**不吐出来**，中间折成一条 `@` 省略标记；`context` 可调
+  ✔ A4 截断三样（行数 / 字节 / 单行超长）都**如实标 `truncated`**，且 `total` 说的是"本该有多少行"（⛔ 不静默给一半）
+  ✔ A5 `diffFloorFiles` 六种 `kind` 逐相：changed / same / absent / not-target / deadzone / unreadable（⛔ 读不出来绝**不**画成"没改动"）
+  ✔ A6 这一族也在**导出清单**里（具名 + `export default`；⛔ 漏一个名字就是"没接线"）
+
+B 端点（真 HTTP）：GET …/floors/diff
+  ✔ B1 ★ 缺省 = 比**时间上紧接着它的前一条**（宿主按 `ordinal` 自己挑，⛔ 面板不挑）
+  ✔ B1b ★★ 逐份逐行都是**真内容**（增行/删行；⛔ 不是"改了哪几份"那句话）
+  ✔ B2 ★ 最新那一条（序号 3 vs 序号 2）：超长那一份**如实说"截断了"**（`total` > 给出来的行数），端点也带 `truncated`
+  ✔ B3 ★ 最早的那一条：`ok:true` + `against:null` + 一句"没有可比的"（⛔ 不画成"没改动"、⛔ 也不报成错）
+  ✔ B4 ★ `against` / `againstVariant` 显式给：就比那一条（`againstSource:"named"`，那句人话也照实说是"你指定的"）
+  ✔ B5 ★ 认不出（清单里没有这一条 / `against` 指的那条不在 / 跟它自己比 / 压根没带 nodeId）⇒ `ok:false` ＋ **可读原因**
+  ✔ B6 ★ 有死区的那一份 ⇒ `kind:"deadzone"` ＋ 一句"按块合并"（⛔ 不许假装它跟别的一样）
+  ✔ B6b ★ 死区数据**读不出来** ⇒ `deadzonesReadable:false`（⛔ 不许静默当成"哪份都没死区"）
+  ✔ B7 ★★ 这几脚**纯只读**：整棵记忆库目录（含我们那份清单）逐字节没动
+  ✔ B7b ★ 端点只认 GET（写方法 ⇒ 405；⛔ 不给它留任何写面）
+
+C 两种「对齐」回执的**序号**口径（用户口径「改成：当前记忆从【序号】改为【序号】」）
+  ✔ C1 ★ 「对齐楼层」（`mode:'full'`）：回执 = `当前记忆从【序号 1】改为【序号 3】`（A = 一脚之前指针那一行、B = 这一脚之后）
+  ✔ C1b ★ 那句话里**不再出现「楼」**、也⛔ 不复述"那 5 份一个字节都没写"（用户点名删过这类说明）
+  ✔ C2 ★ 「只对齐楼号」（`mode:'number'`）：回执 = `只把指针从【序号 1】改为【序号 1】（这一条先不长快照，下一轮会自然记上）`
+  ✔ C3 ★★ 旧值认不出（压根没有旧指针）⇒ 如实说 `当前记忆改为【序号 3】` —— ⛔ **不编 0**、⛔ 不写成"从【序号 0】"
+  ✔ C4 ★ 「只对齐楼号」那一脚**不记新行** ⇒ 那一行不在清单里时序号拿不到 ⇒ 如实写「序号未知」（⛔ 不编 0）
+  ✔ C5 ★ 反证：老口径那句（「已『对齐楼层』（就地登记）：档案就地认成第 N 楼…⛔ 那 5 份笔记的正文一个字节都没写」）**一个字都不在了**
+
+F 推给浮层的那一帧（SSE）：`pendingOrdinals` 也搭过去（浮层标题按它说「序号 N」）
+  ✔ F1 ★ 推出去的那一帧里除了 `pending`，还带着**三个序号** `pendingOrdinals`（浮层标题按它说「序号 N」）
+
+E 纪律静态核对（这一单只加了一条**只读**端点；⛔ 不碰别的）
+  ✔ E1 ★ 那条端点在**具名处理函数**里，而且**只读**：不出现任何写盘调用
+  ✔ E2 ★ 端点表与路由都接了（`/floors/diff` 只认 GET）
+  ✔ E3 ★ 这一单没碰别的端点：那几条老端点的表项逐字未动
+  ✔ E4 ★ 判据仍在纯函数里（⛔ 端点里没有自己写一份 diff 算法）
+  ✔ E5 ★ 临时目录清干净（这一档的台子不留垃圾）
+
+== 总结：28 通过 / 0 失败 ==
+  ✔ _selftest-floor-diff.mjs
+
+A 纯逻辑层（lib/floor-snapshot.js 直测）
+  ✔ A1 只认那 5 份：别的名字一律 false（whitelist 是唯一真相）
+  ✔ A2 时间线：head / 楼层序号（`nodes[]` 位置，1 起）/ 紧邻前一楼 / 认不出 ⇒ null
+  ✔ A3 清单归一：认不出的楼层/文件一律丢弃；同一 `(nodeId, variantId)` 只留最后一条；老条目读得出来但标成"不知道哪一支"
+  ✔ A4 planRecord：空基 ⇒ 有的那几份全 changed；"两边都没有"不算变化；byte 差值如实；条目带 `(nodeId, variantId)`
+  ✔ A5 missingBlobs：同 sha 只算一次、盘上已有的不算（内容寻址的真去重）
+  ✔ A6 planRestore 逐份裁决：只认那 5 份 / 那一楼没有的不写 / 逐字节一样的不写 / 正文找不到如实报 / **有死区的按块合并**（不再是整份跳过）
+  ✔ A6b planRestore：死区**判据未知**（`zones:null` / 干脆不传）⇒ 整次不做（blocked，⛔ 一个字节都不写）
+  ✔ A6c mergeDeadzoneBlocks：非死区块照快照（含 CRLF 逐字节）· 死区块取盘上现况 · 找不到不补回 · 盘上有快照没有的保留
+  ✔ A6d rawSpans：与 `deadzone.splitBlocks` **逐块对齐**，且按它拼回来逐字节等于原文（含 CRLF / 连续空行）
+  ✔ A7 rankMemoryHomes：有笔记(+4) > 有我们的清单(+2) > 有死区(+1) > 只是目录；同分取候选链靠前；都不是目录 ⇒ null
+  ✔ A8 writeRestoredFile：不是那 5 份 ⇒ 拒（⛔ 一个字节都不写）
+  ✔ A9 decideRollback 真值表（★ 新口径：同一楼换变体也算回档 · 没记过就退回进楼前 · ⛔ 不用时间戳）
+  ✔ A10 ★ 待处理那条（normalizePending / pendingOf / planPending）：归一 + 幂等（同一次 fork 不刷 at）+ 过期清掉（★ 收尾改口径后已按 fork 触发改写）
+  ✔ A11 ★ decideFork 真值表（六相：no-head / no-seen / same / fork-back / fork-variant / forward / unknown-order）
+  ✔ ★★ A12 核心反证（真机 bug 复现）：同一份夹具（seen=第 40 楼 / head=第 38 楼 / index.last=第 34 楼）—— 新判据**必须**判 fork、老判据在同一份夹具上判 forward
+  ✔ A13 ★ normalizeSeen / normalizePending 新形状：seen 认不出 ⇒ null；pending 认得出的判据改成 `toNodeId`（`target*` **允许缺**）+ 新增 `archive*`
+  ✔ ★★ A14 planPending 新触发口径：只认 `fork.kind === 'fork'`（`from*`=seen / `to*`=head / `archive*`=last；没有 target 也记得住；剧情往前走 ⇒ 清掉）
+  ✔ A15 ★ 导出清单：本单新增的两个判据都在（具名导出 + `export default` 那份清单里）
+  ✔ A16 ★ `settleModeOf` 只认那三个（缺省 / 'full' / 'number'），其余一律 `null`（认不出就是认不出）
+  ✔ A16b ★ 内核那一层也**拒**认不出的 mode（`bad-mode`，`ok:false`）：清单**逐字节没动**（对照组：同一刻的 `'full'` 会写盘）
+  ✔ A17 ★★ `ordinal`：按记录时间升序编号（最大＝最新）· 并列不乱号 · 老记录照样进 · `at` 认不出 ⇒ 排最后且如实 null（⛔ 不编 0）
+  ✔ A17b ★ 序号那一族也在**导出清单**里（具名 + `export default`；⛔ 漏一个名字就是"没接线"）
+
+B 补单 §2 八对（变体级快照 + 死区按块合并；★ 20260924 回档改手动挡后，改口径的那几条已按新口径改写）
+  ✔ §2-1相 ★ swipe（同一楼换变体）判成回档 ⇒ **只记一条待处理、那 5 份逐字节不变**（⛔ 不自动跟随）
+  ✔ §2-1相b ★ 手动点「把档案退回第 1 楼」⇒ 真写回第 1 楼那份，并清掉那条待处理
+  ✔ §2-1相c ★ 第 2 支往后重演 ⇒ 记下 (2,V2)：同一 nodeId 两支各一条、互不覆盖（各自的 sha 都在）
+  ✔ §2-2相 ★ 同一楼换变体（swipe）也算回档：待处理指向 `(N,V1)` 那一支（自己有快照），那 5 份逐字节不变
+  ✔ §2-2相b ★ 手动点「把档案退回第 2 楼（这一支）」⇒ 真写回**这一支**那一份（`(N,V1)`）+ 清掉待处理
+  ✔ §2-2反证 ★ 把判据改回"只看 nodeId"（上一版）⇒ 同一夹具下判成 same、**连待处理都不会有** ⇒ 上面那条断言必红
+  ✔ §2-3相 ★ 新变体没记过 ⇒ 待处理指向"进这一楼之前"（紧邻前一楼**最后一条**快照），那 5 份一个字节都没写
+  ✔ §2-3反证 ★ 把 (b) 支挖掉（不给"紧邻前一楼"）⇒ 同一夹具下"待处理指向第 1 楼"必红（那条照样记着，但**没有**可退回的那一份）
+  ✔ §2-4相 ★ head 走到后面的新楼层 ⇒ 不回档（笔记就是模型刚写的样子）、只是又记了一份
+  ✔ §2-4相b ★ 前进、笔记又没变 ⇒ **一个字节都不写**（index 连 `at` 都不动、5 份不动）
+  ✔ §2-4相c ★ 组装那一脚（watch）看到"剧情位置没动" ⇒ 同样一个字节都不写（★ 收尾改口径后 kind 按 fork 报 ⇒ `same`）
+  ✔ §2-5相a ★ 判到回档这一下**一个字节都没写**（死区那份也照旧停在盘上现况、只留一条待处理）
+  ✔ §2-5相 ★ 死区按块合并：死区块 A 逐字节等于**盘上现况**（模型写的），非死区块 B 等于**快照**（第 1 楼的）
+  ✔ §2-5反证① ★ 把"死区块保留现况"换成"照快照整份写"（上一版没有块合并时的直觉写法）⇒ A 被改回作者版 ⇒ 那条断言必红
+  ✔ §2-5反证② ★ 把口径改回上一版的"整份跳过"⇒ B 停在模型改的版本（≠ 快照）⇒ 那条断言必红（两种口径都咬人）
+  ✔ §2-6相 ★ 死区数据坏掉也照样判到回档（只记一条待处理）：那 5 份逐字节没变
+  ✔ §2-6反证 ★ 死区数据坏掉（判据未知）⇒ 手动那一脚**整次恢复不做**：那 5 份逐字节没变、清单也没动
+  ✔ §2-6反证b ★ `last` **不前进**（留在原地）⇒ 那一档还能重试（⛔ 不拿"什么都没做"当"已经跟上了"）
+  ✔ §2-6反证c ★ 没成功 ⇒ 那条待处理**不清**（横幅该还在，下一轮还能重试）
+  ✔ §2-7相 ★ 老条目读得出来、如实标成"不知道是哪一支"（只读）
+  ✔ §2-7相b ★ 回档到这一楼 ⇒ **不拿老条目当快照**（那一支没记过、连前一楼也没有 ⇒ 没有可退回的那一份；⛔ 笔记一个字节没动）
+  ✔ §2-7相c ★ 面板手动恢复点到老条目 ⇒ 拒（`legacy-no-restore`，一个字节都不写）
+  ✔ §2-7相d ★ 连"这一楼这一支"也没有 ⇒ `no-snapshot`（⛔ 不许拿老条目顶替成本支的）
+  ✔ §2-8相 ★ 判到回档（零写入）与手动恢复两脚之后，预置那几份（rulebook / 大纲 / 示例.txt）逐字节不变
+
+C 上一单那八对（回归；★ 20260924 回档改手动挡后，凡断言"自动写盘"的那几条都拆成"判到只提示 + 手动才写"）
+  ✔ C-1相 ★ 第一次记一份：5 份都进清单（没内容的记 sha:null），只落有内容那几份的正文
+  ✔ C-1相b ★ 同一楼盘同一支、5 份逐字节没变 ⇒ **一个字节都不写**（index 连 at 都不动、blob 数不涨）
+  ✔ C-1反证 ★ 改一个字符 ⇒ 必写一份；且那一份只涉及**变化那几份**的正文（未变的走 sha 引用，blob 只多 1 个）
+  ✔ C-2相 ★ 第 3 楼写回与第 1 楼相同的内容 ⇒ 正文只落一份（blob 数不涨），清单里两边 sha 相同
+  ✔ C-3相 ★ head 走到后面的新楼层 ⇒ 不回档、笔记原样（就是模型刚写的样子），只是又记了一份
+  ✔ C-3反证 ★ 把"用位置判前后"换成"用时间戳判" ⇒ 同一夹具必误判（红）：位置说前进，时间戳说回档
+  ✔ C-3反证b ★ 那个误判**会造成真实改动**（按它去恢复第 2 楼，笔记会被换成第 2 楼那份）—— 所以不能用时间戳
+  ✔ C-4相a ★ 判到回档 ⇒ 那 5 份**一个字节都没写**（只记一条待处理）
+  ✔ C-4相 ★ 手动点「把档案退回第 1 楼」⇒ 那 5 份被写回那一份的样子（逐字节）
+  ✔ C-4相b ★ 写回用**原子写 + 写前备份**（原件改名留档，⛔ 绝不销毁）
+  ✔ C-4相c ★ 恢复之后 `last` 跟到恢复的那一份（否则下一轮会被判成又一次回档 ⇒ 写盘循环）
+  ✔ C-4反证 ★ 把恢复那一步挖掉 ⇒ 同一夹具下"笔记回到那一份"必红（盘上还是第 3 楼那份）
+  ✔ C-5相 ★ 手动恢复发生时，"当下"那一份快照也在（挂在恢复前那一份上，逐字节是刚变过的样子）
+  ✔ C-5相b ★ 可撤销：点回第 3 楼那一支 ⇒ 笔记回到"回档前那一刻"的样子（⛔ 不是更早那份）
+  ✔ C-6 夹具就位：死区文档在场（那两份是"作者的"）
+  ✔ C-6反证 ★ 判到回档那一脚 + 手动恢复那一脚之后：rulebook / 大纲 逐字节没变（不在那 5 份里 ⇒ 一个都不许被写）
+  ✔ C-6相 ★ index.md 里有死区 ⇒ **按块合并**：非死区那半回到第 1 楼，死区那段保留盘上现况（这里是逐字没变的）
+  ✔ C-6 相b ★ 死区名单**压不过**"非死区块照快照回档"（这一条就是本单改的口径 —— 上一版这里是"整份跳过"）
+  ✔ C-6反证c ★ 把"只恢复那 5 份"的判据挖掉 ⇒ 必红（无白名单的同款逻辑会把 rulebook.md 也写回去）
+  ✔ C-7相 ★ 回到没有快照的楼层 ⇒ 待处理指向"进这一楼之前"（用第 1 楼那一份），如实说用的是哪一份
+  ✔ C-7相b ★ 手动点那一脚才真退回"进这一楼之前"（笔记回到第 1 楼那份、`last` 也跟着）
+  ✔ C-7反证 ★ 那一楼**也没有被"顺手记一份"**（拿第 4 楼的内容冒充第 2 楼会毒掉以后的回档）
+  ✔ C-8相 ★ 面板"直接改"保存某份 ⇒ 该楼层**这一支**的快照跟着刷新（sha/blob/清单三处都跟上）
+  ✔ C-8相b ★ 保存**不触发任何"恢复"**（盘上就是你刚保存的那份；另外几份一个字节没动）
+  ✔ C-8相c ★ 后来回档回这一支 ⇒ 待处理指向**这一支**（用户自己改过的那份），笔记先不动
+  ✔ C-8相d ★ 手动点「把档案退回第 2 楼」⇒ 恢复的是**用户自己改过**的那份（决定④的落点）
+
+D 接线（真 HTTP + 真钩子：轮末才记 / 判到回档**只提示** / 手动才写 / 面板走端点 / 不碰别的）
+  ✔ D1 ★ 两条钩子都在场（组装时那条 + 轮末那条），且注册在同一个插件里
+  ✔ D2 ★ 真接线｜判到回档**一个字节都不写**：调 next() 那一刻与让出事件循环之后，笔记都还是第 3 楼那份
+  ✔ D2b ★ 但那条待处理在本轮之内就记好了（组装那一脚就跑完 —— ⛔ 不等轮末）
+  ✔ D2c ★ 回档只提示、如实播报（日志一条：剧情从哪一楼退到哪一楼 + 档案停在哪一楼 + 一个字节都没写 + 得由人在面板上点）
+  ✔ D2d ★ 面板那句「最近一次回档」有料可读（状态文件如实落盘：从第 3 楼 → 第 1 楼 + 那条待处理 + 零恢复）
+  ✔ D3 ★ 每一轮至多一次：同一 turn 里再驱动装配 ⇒ 不再跑（状态文件一个字节没动）
+  ✔ D3b ★ 同一 turn 里 head 变了也不跑（门是"这一轮"，⛔ 不是"状态没变"）
+  ✔ D3c ★ 换一轮（turn=8）⇒ 门开着，如实播报"认不出先后 ⇒ 不动笔记"（⛔ 不拿时间戳猜）
+  ✔ D3d ★ 那句播报同一个结果只报一条（⛔ 不每个 step 刷屏）
+  ✔ D4 ★ 真接线｜同一楼 swipe（换变体）⇒ 组装那一脚就记下待处理（指向"进这一楼之前"），笔记一个字节没动
+  ✔ D4b ★ 真接线｜回到没有快照的楼层 ⇒ 待处理指向"进这一楼之前"，那句把"回档到第 2 楼"与"用的是第 1 楼那一份"都说了（笔记没动）
+  ✔ D5 ★ 轮末（turn/end）那一脚记一份：清单 + 正文都落盘了（watch 那一脚不记，只有轮末记）
+  ✔ D5b ★ 再一个轮末、笔记没变 ⇒ 一个字节都不写（⛔ 不许每轮写盘）
+  ✔ D5c ★ 压缩那一轮也记（compaction/end 少一条就会漏掉手动 /compact 那一轮）
+  ✔ D6 ★ GET /floors：每一支给序号/变体/时间/改了哪几份（+几字节）/当前那一支高亮，且只列记过的
+  ✔ D6b ★ GET /floors 只读：一个字节都没写（清单与正文逐字节没变）
+  ✔ D6b2 ★ 再读一次还是逐字节一样（⛔ 读端点不刷任何时间戳）
+  ✔ D6c 还没有记忆库 ⇒ 读侧老口径（HTTP 200 + ok:false，⛔ 不抛 500）
+  ✔ D7 ★ 没有快照的那一楼那一支 ⇒ 404 + 一句人话（⛔ 不静默、⛔ 不装成功）
+  ✔ D7b 体里没带 nodeId ⇒ 400（写侧口径）
+  ✔ D7c ★ 手动「回到这一楼」= 同一个恢复函数（笔记回到第 1 楼那一支；回执里有 message 给面板原样画）
+  ✔ D7d ★ 手动那一脚也**不影响会话**（⛔ 不碰 timeline / catalog：两份逐字节没变）
+  ✔ D7e ★ 老条目只读：端点拒恢复（409 + RP_MEMORY_FLOOR_LEGACY，一个字节都不写）
+  ✔ D7f ★ 老条目在清单里如实标出来（`legacy:true` + `legacyFloors` 一句）
+  ✔ D7g ★ 有哪一份写不进去 ⇒ 500 + 如实列出（其它照旧；⛔ 绝不"部分成功当全成功"）
+  ✔ D10 ★ GET /floors：还没判过 ⇒ `pending` 如实为 null（面板据此**不画**横幅）
+  ✔ D10b ★ GET /floors 里那条 pending 字段齐（from*/to*/archive*/target*/why/source/targetKey/at），且仍然**纯只读**
+  ✔ D10c ★ 再读一次清单逐字节一样（⛔ 读端点不刷任何时间戳）
+  ✔ D10d ★ 体里的 targetKey 与当下那条不一致 ⇒ 409 + 如实说（那条还在原样，一个字节都没动）
+  ✔ D10e ★ 体坏（没带 JSON）⇒ 400（写侧口径，⛔ 不静默）
+  ✔ D10f ★「保持现状」＝就地登记：`last` 锚到当前这一楼 ＋ 把**盘上现文**记成它的那一份（⛔ 那 5 份正文一个字节都不写）
+  ✔ D10g ★ 就地登记之后：清单里那条没了、当前那一楼如实指到第 1 楼（面板据此不再弹）
+  ✔ D10h ★ 就地登记之后判据**不再认成回档**（turn 那一脚 kind=same）、一个字节都不写、也不弹
+  ✔ D10i ★★ 就地登记之后**记录无缝续上**：同一楼又改了笔记 ⇒ 真的记了一份（⛔ 不是"只清 pending"那种停摆）
+  ✔ D10j ★ 如实播报（「档案对齐到第 N 楼」点下去那一刻记了一条：就地登记 + 锚到哪一楼；⛔ 不静默）
+  ✔ D8 ★ 接线那一层（真钩子）：判到回档**一个字节都没写**（死区那份照旧停在盘上现况），只留一条待处理
+  ✔ D8b ★ 真端点（手动那一脚）：死区那一份按块合并 —— index.md 的非死区块回到第 1 楼 + 待处理清掉
+  ✔ D8b2 ★ 手动那一脚的回执把"按块合并"如实带上（⛔ 不再是"整份跳过"那种会误导的话）
+  ✔ D8c ★ 死区数据坏掉（判据未知）⇒ 判到回档照旧只提示、笔记保持原样（⛔ 不静默，⛔ 也不动）
+  ✔ D8d ★ 被挡住时 `last` **不前进**（下一轮还判回档、还试一次；⛔ 不拿"什么都没做"当"已经跟上"）
+  ✔ D8e ★ 真端点｜死区数据坏掉 ⇒ 手动那一脚**整次不做** + 如实说"笔记保持原样"（⛔ 一个字节都不写）
+  ✔ D9 ★ head 为空 ⇒ 一个字节都不写（连我们的快照目录都不建）
+  ✔ D9b ★ 但如实记日志，且**一次就够**（两轮下来只有一条，别每个 step 都记）
+
+F 本单 §3 六对（★ 20260924 改口径：回档改**手动挡** —— 判到只提示、写盘要人点）
+  ✔ §3-1相 ★ 判到回档 ⇒ 那 5 份**逐字节不变**（连 .bak 都没有）、且 `pending` 记下了 from/to/target/why/source/targetKey/at
+  ✔ §3-1反证 ★ 把那一脚换回 `restoreFloor`（老的"自动跟随"）⇒ 同一夹具下那 5 份**被改写** ⇒ 上面那条"逐字节不变"必红
+  ✔ §3-2相 ★ 同一次回档连判三次（turn + turn + watch）⇒ `at` 不变、只有一条、**一个字节都不写**
+  ✔ §3-2相b ★ 目标变了 ⇒ 那一条被**更新**（targetKey / to / at 都跟上，还是只有一条）
+  ✔ §3-3相 ★ 显式调 `restoreFloor` ⇒ 那 5 份确实被写回 + `pending` 被清
+  ✔ §3-3反证 ★ 把"清 pending"那一步挖掉 ⇒ 同一夹具下"pending 被清"必红（横幅会一直挂着）
+  ✔ §3-4相 ★「保持现状」＝就地登记：`last` 锚到当前这一楼 ＋ 记成**盘上现文**（⛔ 那 5 份正文逐字节不变）
+  ✔ §3-4相b ★★ 就地登记之后记录**无缝续上**（同一楼又改了笔记 ⇒ 真记一份），且不再弹
+  ✔ §3-4反证 ★ 挖掉"把 last 锚到当前这一楼"那一步（＝只清 pending 的那一版）⇒ **档案那一侧**仍认回档（记录侧够不到）⇒ 相b 必红
+  ✔ §3-5相 ★ 判到回档那一脚 + 手动恢复那一脚之后：预置那几份与死区块**逐字节不变**
+  ✔ §3-5反证 ★ 把"只写那 5 份"的判据挖掉 ⇒ 无白名单的同款逻辑会把 rulebook.md 也写回去 ⇒ 上面那条必红
+  ✔ §3-6相 ★ head 到一个没有快照的楼层 ⇒ 那 5 份**一个字节都不写**（也没有 .bak），只留一条提示
+  ✔ §3-6相b ★ 连前一楼也没有 ⇒ **没有**可退回的那一份：那条提示**照样记着**（面板照弹、只是不给「退回」那颗按钮），那 5 份一个字节都没动
+
+G 本单收尾（★ 开 fork 提示 + 常驻状态行）：真 HTTP + 真钩子的端到端
+  ✔ G1 ★ 面板开档那一脚（POST /floors/scan）：**不用发消息**就把那条待处理带出来了（横幅有料可画）
+  ✔ G1a ★★ `pendingOrdinals`：横幅那三个位置是**序号**（`{from,to,archive}`），且**不混进** `pending` 那条账里
+  ✔ G1b ★ 同一个位置再 scan 一次 ⇒ 清单**逐字节不变**（幂等，⛔ 不刷时间戳）+ 那份簿记也没动
+  ✔ G1c ★ 「不处理」（POST …/pending/ack）：那条 pending 空了 ＋ 我们那份 `floor-head.json` 的 `seen` 跟到了当前 head（第 1 楼）＋ ⛔ 不登记（`last` 一动不动）
+  ✔ G1d ★「不处理」之后再 scan ⇒ **不再弹**（`seen` 已经跟到这一楼了）+ 清单一个字节都没写
+  ✔ G1e ★ 常驻状态行那颗「档案对齐到第 N 楼」（**没有**待处理那条时）：就地对齐到当前这一楼 —— `last` 锚到第 1 楼 ＋ 盘上现文记成那一份（⛔ 正文一个字节不写）
+  ✔ G1f ★ 再点一次（已经对齐了）⇒ **一个字节都不写**（⛔ 不空刷清单；连点两下不该写两次）
+  ✔ ★★ G2 真机现场（档案在剧情后面）也**照样弹**：scan 带出 pending，且**没有**可退回的那一份（⛔ 不编一个目标）
+  ✔ ★★ G2b 那一句人话按新口径说清三件事：**剧情刚从第 4 楼退到第 3 楼** ＋ **档案停在第 1 楼** ＋ 没有可退回的那一份
+
+G3 ★ 2026-09-25（那一排的三颗）：「只对齐楼号」＝`mode:'number'` —— 清单只动 last+pending
+  ✔ G3a ★ 「只对齐楼号」（`mode:'number'`）：清单**只动** `last` + `pending` —— 楼层行数不变、blob 目录一个文件都不多、那 5 份逐字不变
+  ✔ G3b ★ 只对齐楼号之后：那一楼**没有**快照（`baseFloorOf` 是 null）—— 语义就是"楼号先对上，内容等下一轮自然记上"
+  ✔ G3c ★★ 「内容等下一轮自然记上」：下一轮轮末那一脚把这一楼**记成新行**，且盘上有的那几份 `changed` 全 true（base 是 null ⇒ 全量记）
+  ✔ G3d ★ 反证：「对齐楼层」（`mode:'full'`）在**同一个夹具**上 ⇒ 那一楼**当场长出新行**（＋ 新 blob）—— 所以 G3a 那条"行数不变"咬的正是 `mode`（⛔ 不是橡皮章）
+  ✔ G3e ★ `mode` 传了认不出的值 ⇒ **400**（⛔ 不许悄悄按 `'full'` 跑：那会替用户记下一份他没点的快照）＋ 清单一个字节都没写
+  ✔ G3f ★ `mode` 是空串也**一样 400**（"认不出"就是认不出 —— ⛔ 不留一个"空串＝full"的后门）
+  ✔ G3g ★ 老那一脚照旧：体里**不带** `mode` ⇒ 缺省就是 `'full'`（回执里如实回 `mode:'full'`；行为与从前一字不差）
+
+E 纪律静态核对（只写那 5 份 + 我们自己的目录）
+  ✔ E1 ★ 白名单只有一处：lib/floor-snapshot.js 里那 5 个名字只在 FLOOR_FILES 出现一次
+  ✔ E2 ★ 只写自己家：lib/floor-snapshot.js 里所有写盘都落在"清单 / 内容寻址正文 / 那 5 份"三处
+  ✔ E3 ★ 时间线/周目目录**只读**：接线那一块里唯一的写盘是我们自己的状态文件（临时文件 + rename）
+  ✔ E5 ★ 手动挡的唯一写入口：`syncFloor` 判到**开 fork**那一支**不许**再出现 `restoreFloor`/`runRestore`/`writeRestoredFile`
+  ✔ E4 ★ 判据只有一处：死区那套只在 `lib/deadzone.js`（floor-snapshot 只调用，⛔ 不另立一份）
+
+H ★ 2026-09-24（顶部弹窗那一单的**回归**）：新那条 SSE 端点不搅乱老那四条 + 真 fs.watch 的"立刻"
+  ✔ H1 老的 `/floors/scan` 照旧：同一个位置连扫两次 ⇒ 清单逐字节不变（幂等，⛔ 不刷时间戳）
+  ✔ H1b 老的 `GET /floors` 照旧：HTTP 200 + 清单形状（`ok` / `floors[]` / `pending` / `head` 都在）
+  ✔ H2 新的 `GET /floors/events` 在路由表里且**只认 GET**（POST ⇒ 405 + "只接受 GET"）
+  ✔ H2b 连上 ⇒ 200 + `text/event-stream` + **第一帧就是 `hello`**（带现状：`pending` / `head` / `last`）
+  ✔ H2c `hello` 里那条 `pending` 与同一刻 `/floors` 里那条**逐字一致**（⛔ 不两处各拼一份）
+  ✔ H2c2 ★ 同一帧里的 `pendingOrdinals` 与 `/floors` 那份**同一份**（浮层标题按它说「序号 N」；⛔ 不编 0）
+  ✔ H2d ⛔ 那条端点**一个字节都没写**（清单逐字不变）+ 老那四条端点行为不变（仍 HTTP 200 + 同一份清单）
+  ✔ H3 ★★ 真 `fs.watch` 那一脚：夹具改 `timeline.json` ⇒ **不用**调 scan、不用发消息，盘上那条待处理自己就出现了（"立刻"这一半）
+  ✔ H3b 那一脚**只看不改**：那 5 份正文逐字没变（⛔ 回档不写正文那条口径照旧）
+
+== 总结：158 通过 / 0 失败 ==
+  ✔ _selftest-floor-snapshot.mjs
+
+0 台子自证（这几条不成立的话，下面全白测）
+  ✔ 0a 假 watcher 在接线那一刻就挂上了，盯的是**时间线的目录**（⛔ 不是那个文件）
+  ✔ 0b 那条端点登记在表里且**只认 GET**（POST ⇒ 405 + "只接受 GET"）
+  ✔ 0c 场地就绪：记忆库与时间线都在
+
+A 纯逻辑：debounce（窗内只回调一次 · 窗后再喂再来一次 · cancel · ⛔ 不抛）
+  ✔ A1 窗内连喂 3 次 ⇒ **只回调 1 次**（用的是最后一次那份参数）
+  ✔ A2 窗后再喂 ⇒ **再回调一次**
+  ✔ A3 反证：**不去抖**的同款逻辑 ⇒ 3 次喂 = 3 次回调（说明 A1 咬的是"只回调一次"这件事）
+  ✔ A4 `cancel()`：还没到点的那一拍被掐掉（⛔ 不许"已经拆掉了还回调一下"）
+  ✔ A5 坏输入 / 回调里抛异常，都**不往外抛**（定时器里抛出去＝未捕获异常，能把宿主搞挂）
+
+B watchTimeline（**假 watcher + 真目录**）：只认那个文件名 · 去抖 · dispose 幂等 · 盯不住也不抛
+  ✔ B0 盯的是传进来的那个**目录**（`watch(dir, …)` —— ⛔ 不盯单个文件）
+  ✔ B1 写 `timeline.json` ⇒ 触发一次
+  ✔ B2 窗内连喂 3 个事件（一次保存的 create+change+rename 那种）⇒ **只触发一次**
+  ✔ B3 写**别的文件**（catalog.json / notes.md / index.json）⇒ **一次都不触发**
+  ✔ B4 反证：**不过滤文件名**的同款实现 ⇒ 写 catalog.json 也会触发（说明 B3 咬的正是那一张过滤）
+  ✔ B5 文件名是空 / `undefined` ⇒ **也算一次**（宁可多跑一趟，⛔ 不许漏掉回档）
+  ✔ B6 `dispose()` 真的**关掉了 watcher**（⛔ 不留野 watcher —— 热重载会重建）
+  ✔ B7 `dispose()` 之后再喂 ⇒ **没有回调**
+  ✔ B8 `dispose()` 调两次不炸（幂等）
+  ✔ B9 盯不住（watch 抛 EPERM）⇒ 返回一个**空 dispose**，⛔ 一个字节都不抛
+  ✔ B10 空 dispose 也幂等（调两次不炸）
+  ✔ B11 盯不住时**如实 warn 一条**（⛔ 不许静默：要说清"现在只能靠轮末 / 开面板发现"）
+  ✔ B12 真 `fs.watch` 盯**不存在的目录** ⇒ 同样走"空 dispose + 一条如实日志"（日志里有 errno）
+  ✔ B13 真失败那条路的空 dispose 也幂等
+  ✔ B14 监视器异步 `error` 事件被接住（⛔ 未捕获的 error 会把宿主搞挂）+ 如实 warn 一条
+  ✔ B15 ★ 真 `fs.watch` 冒烟：真写一次 `timeline.json` ⇒ 真的回调了（生产那条路在这台机器上通）
+  ✔ B16 反证（对着 B15）：真 watcher 写**别的文件** ⇒ 一次都没回调
+
+C 真 HTTP：连上先 `hello` · 两条连接都收到 · 断开即摘 · 上限 8 · ⛔ 端点不写盘
+  ✔ C0 场地就绪：`/floors` 里那条**待处理**已经在（hello 要拿它对齐）
+  ✔ C1 连上 ⇒ 200 + `text/event-stream` + `no-cache` + `x-accel-buffering: no`（connection 给了就得是 keep-alive）
+  ✔ C2 **第一帧就是 `hello`**（帧格式 `data: <JSON>\n\n`，只用默认 message 事件）
+  ✔ C3 `hello` 里的 `pending` 与同一刻 `/floors` 里那条**逐字一致**（⛔ 不许两处各拼一份）
+  ✔ C3b `hello` 还带着现状那两样（`head` / `last`，与 `/floors` 同一份拼装）
+  ✔ C4 订阅者数如实：此刻 = 1
+  ✔ C5 第二条连接也以 `hello` 开场 · 订阅者 = 2
+  ✔ C6 ⛔ 光连上来看（连两条 + 两帧 `hello` + `/floors`）**一个字节都没写**清单（sha + mtime + size 都不动）
+  ✔ C7 fs.watch 那一脚推一次 ⇒ **两条连接都收到** `{type:'fork'}`（⛔ 不是只推第一个）
+  ✔ C7b 那一帧的形状 = `{type, pending, at}`（字段名是定死的，客户端按它判）
+  ✔ C7c 那一帧里的 `pending` 也是从**那一份拼装**里取出来的（与盘上那条逐字一致）
+  ✔ C8 客户端断开（fetch abort ⇒ 服务端 `close`）⇒ 订阅者集合**摘掉了**（1 条）
+  ✔ C9 反证（对着 C7）：**剩下的那条**照样收到新帧 ⇒ 实现是"推给所有订阅者"，⛔ 不是"只推第一个"
+  ✔ C10 两条都断开 ⇒ 订阅者集合回到 0（⛔ 一条幽灵都不许剩）
+  ✔ C11 挂满 8 条 ⇒ 8 条都进得来（订阅者 = 8）
+  ✔ C12 第 9 条 ⇒ **如实 503 + 一句人话**（⛔ 不许静默丢弃）
+  ✔ C13 全断开 ⇒ 回到 0
+  ✔ C14 ⛔ 满员那一段（含被拒的第 9 条与全断开）也**一个字节都没写**清单
+
+D 端到端：夹具里改 timeline.json（假 watcher 喂事件）⇒ 订阅者收到 fork 且 /floors 里那条真在
+  ✔ D0 基线：第 3 楼站定（`head.seq = 3`），且**没有**待处理那条
+  ✔ D1 夹具改 `timeline.json`（退到第 1 楼）+ 假 watcher 喂事件 ⇒ 订阅者收到 `{type:'fork'}`
+  ✔ D2 那一帧里的 `pending` 与 `/floors` 里那条**同一份**（两处同源：都来自清单里那条待处理）
+  ✔ D3 那一帧说的是"剧情**刚从**第 3 楼**退到**第 1 楼"（判据是 `decideFork` —— ⛔ 与档案在哪一楼无关）
+  ✔ D4 盘上那条待处理也真的落了（fs.watch 这一脚除了推帧，也真的把账记下来）
+  ✔ D4b ⛔ 那一脚**不动正文**：那 5 份笔记的正文逐字没变（判据：文件内容还是夹具写的那份）
+  ✔ D5 改成"剧情往前走" ⇒ **不推** fork（`fork.kind === 'forward'` 那一支不进推送）
+  ✔ D6 灵敏度自证（对着 D5）：紧接着再退一次 ⇒ **又推到一帧** ⇒ D5 的安静是真的安静，不是通道死了
+  ✔ D7 反证：喂的是**别的文件名**（目录里的 `catalog.json`）⇒ 既不推帧、盘上那条待处理也一个字没改
+
+E 静态纪律：⛔ 不轮询/不定时器 · ⛔ 端点纯推送不写盘 · ⛔ 不碰 Tavern 一行代码
+  ✔ E0 找到那两处实现（切片有效）
+  ✔ E1 帧格式：`data: ` + JSON.stringify + `\n\n` 两种都在（hello 与推送帧）
+  ✔ E2 心跳是**注释帧**（`:\n\n`）且间隔 25 秒（⛔ 不拿 JSON 帧刷屏、⛔ 不是轮询）
+  ✔ E3 订阅者上限默认 8，超了**如实 503 + 一句人话**（⛔ 不许静默丢弃）
+  ✔ E4 断开即摘：`res.on('close')` ⇒ 从集合里删（⛔ 不许越挂越多）
+  ✔ E5 随卸载全关 + 清空集合（热重载不留悬挂连接、不留幽灵订阅者）
+  ✔ E6 watch 由**调用方注入**（生产 = node:fs 的 watch；台子才能用假 watcher 喂事件）
+  ✔ E7 ⛔ 即时检测那条路上**没有轮询**：floor-watch.js 里只有去抖那一只 setTimeout，没有 setInterval
+  ✔ E8 ⛔ 那条端点**纯推送不写盘**：处理函数体里没有任何写盘动作
+  ✔ E9 ⛔ 不碰上游 Tavern 一行代码：没有往它的工作区写的调用（只读它写的那个文件名）
+  ✔ E10 接线随卸载拆掉（`scope.effect` 的 dispose 里调 `disposeFloorWatch()` —— 热重载不留野 watcher）
+  ✔ E11 盯的是**面板绑定那一个**周目（`floorHomeBound()`，与 `/floors` 同源；⛔ 本单不做多周目同时盯）
+  ✔ E12 模块缺席照旧安全降级：floor-watch.js 加载失败只是**不接线**（warn 一条 + 退成"轮末/开面板才发现"）
+  ✔ E13 ⛔ 回档那一脚不写正文：`floorWatchKick` 只调 `floorSyncAt` 与 `floorsView`（没有恢复/写正文那一族）
+
+F 收尾：订阅者全清 · 野 watcher 归零
+  ✔ F1 台子跑完：SSE 订阅者 = 0（⛔ 不留幽灵订阅者）
+  ✔ F2 生产那条 watcher 还活着，且**整段跑下来就一条**（幂等：连连接、连喂事件都不重建）
+
+== 总结：68 通过 / 0 失败 ==
+  ✔ _selftest-floor-watch.mjs
+magictarven /health 自检（20260914 C0）— node v24.12.0
+洞 A：tavernProbeOk 判据（真 HTTP 假宿主）
+  ok  1. 200+json+{ok:true,list:[]} ⇒ true
+  ok  2. 404+空 body（沙箱没装 Tavern 的实测形状）⇒ false
+  ok  3. 200 但非 JSON（两种变体）⇒ false
+  ok  4. 200+json+{ok:false} ⇒ false（缺 list 的 {ok:true} 也 false）
+  ok  5. 连接拒绝 / 连上不回（超时）⇒ false
+      反证实证：旧判据对 2/3/4 一律 true（假阳性复现）→ 断言 false 全变红；新判据全 false
+  ok  6. 反证：退回旧判据「能连通即 true」⇒ 第 2/3/4 条必须变红
+洞 B：shortIdForClient（sessionId 回显截断）
+      形状：原文长度 56 → 截断后长度 32（短 id 尾 12 位）
+  ok  7①②. 截断后：无 36 位 UUID；尾 12 位仍在
+      反证实证：原文直出含 36 位 UUID → 断言「无 UUID」变红
+  ok  7③. 反证：不截断（原文直出）⇒ ①必须变红
+      接线行：lib/index.js:2224、2367
+  ok  7④. 接线检查：两个错误分支确实套了 shortIdForClient
+
+9 passed, 0 failed
+  ✔ _selftest-health-20260914.mjs
+[PASS] ①注入 readLog：v3-only 会话读得出来（turns=2 / latest=2），且只认注入的那份
+[PASS] ①b 真标题来自 session/title（不是消息正文冒充）+ meta 来自注入读取器
+[PASS] ①c 同一会话的新一轮（第 2 楼）在响应里可见，startedAt 是第 2 楼的时间
+[PASS] ②反证：不注入 readLog ⇒ 真失败（HTTP 里 ok:false），绝不返回 0 楼冒充"没内容"
+[PASS] ③读取器抛 not found ⇒ error.message 逐字透传（用户看得见真原因）
+[PASS] ③b 读取器抛「日志为空」⇒ 同一形状的 ok:false（不许两类失败混成一种）
+[PASS] ④两个会话各读各的：问 OTHER 时读取器只收到 OTHER
+[dsh-memory-archive] 常驻预热 …55555555 parseMs=1 requests=1
+[PASS] ⑤resident 投影在注入路径下口径为真：requests=1（第 2 楼只有 1 条 header）
+[PASS] ⑥反证：lib/index.js 的 promptViewerFactory 调用里确实带了 readLog
+
+9 PASS / 0 FAIL
+  ✔ _selftest-host-readlog.mjs
+PASS DSH_HOME 指向仓库内临时目录
+PASS DSH_HOME 不在用户家目录
+PASS apply(fakeCtx) 不抛
+PASS 同步断言：恰好注册 2 条路由
+PASS 路由1 = prefix /dsh-memory-archive/api
+PASS 路由2 = prefix /dsh-memory-archive/prompt
+PASS 两条 handler 都是函数
+PASS ctx.get(webServer)=undefined 时 apply 不抛
+PASS GET /api/health → 200 ok:true
+PASS GET /prompt/health → 200 ok:true
+PASS GET /api/templates → 200 ok:true
+PASS compaction.builtin 含 anima 原文标记「# Summarization Guidelines」
+PASS compaction.builtin 是一份「留空破限头」的模板（不含 anima 破限原文）
+PASS templates.compactionJailbreak 默认空、custom:false（玩家自己填，我们不内置）
+PASS placeholder.builtin 含 {from}
+PASS reference.officialPreamble 非空
+PASS PUT {"compaction":"X"} → 200、custom:true、current==="X"
+PASS PUT {"compaction":null} → custom:false、current===builtin
+PASS PUT {"compaction":123} → 400 CONFIG_INVALID
+PASS 临时 DSH_HOME 已删除
+PASS 降级实证：apply 不抛（prompt-viewer.js 加载失败）
+PASS 降级实证：只同步注册 1 条路由（仅 /api）
+PASS 降级实证：有 warn 日志且提到提示词查看器
+PASS 降级实证临时目录已删除
+
+ALL PASS
+  ✔ _selftest-host-v4.mjs
+PASS DSH_HOME 指向仓库内临时目录
+PASS DSH_HOME 不在用户家目录
+PASS apply(fakeCtx) 不抛
+PASS 同步断言：恰好注册 2 条路由
+PASS 路由1 = prefix /dsh-memory-archive/api
+PASS 路由2 = prefix /dsh-memory-archive/prompt
+PASS 两条 handler 都是函数
+PASS ctx.get(webServer)=undefined 时 apply 不抛
+PASS GET /api/health → 200 ok:true（契约未变）
+PASS GET /prompt/health → 200 ok:true（契约未变）
+PASS GET /api/未知路径 → 404 NOT_FOUND（降级语义未变）
+PASS 临时 DSH_HOME 已删除
+
+ALL PASS
+  ✔ _selftest-host-v5-mem.mjs
+PASS 静态：1条路由 kind=prefix path=/dsh-memory-archive/api handler=函数；webServer 缺失（两形态）apply 不抛
+PASS GET /health → 200 webServer=true sessionQuery=false storageDirWritable=true tavernReachable=bool
+PASS 配置回环+密钥语义（改指 retrieval）：workspace 读回；key→retrieval.keySet=true keyHint=…1234 无原文；''保留；__CLEAR__→false；盘上有 config.json 无 .tmp
+PASS 校验：rootMode=bogus / url=ftp:// / 非法JSON → 400 CONFIG_INVALID；⛔ 旧 api 键应被明确拒（不静默）
+PASS POST /retrieval/test（key 已清空）→ 400 CONFIG_INCOMPLETE（未发网络请求）
+PASS 无 sessionQuery → /sessions、/session/events 均 503 SESSION_QUERY_UNAVAILABLE（不500不崩）
+PASS 分页：默认50条；limit=50&offset=50 → 50条 total=120 首seq=50 尾seq=99；limit=999 夹200 → 120条不报错
+PASS surface：filterEvents 生效 → current/shadowed/log-only 三态齐全、无 null、正文与 seq 对齐
+PASS 兜底：filterEvents抛错→listEvents join surface 无null；两者全缺→surface 全 null、50条 total=120 正文在
+PASS title/updatedAt：fulfilled→value.title.title=标题A、updatedAt=title.updatedAt(数字)；rejected→跳过不覆盖(title=null,updatedAt=createdAt退路)；无title无createdAt→全null
+PASS titles=0：投影 0 次、title/updatedAt 全 null、耗时 0ms(<1500)；titles=1：投影 1 次并解出；再查走 TTL 缓存仍 1 次
+PASS 缓存：同会话两次 load/filterEvents 各只 1 次；refresh=1 → 重取(2次)；换会话各取各的（不串味，共3次load）
+PASS LRU≤3：序列 l1,l2,l3,l1,l4,l2,l1 → load 恰 5 次（l4 挤掉 l2、l2 重取又挤掉 l3 ⇒ 容量恒 ≤3；两次 l1 均命中）
+PASS 提速：首查 2421ms(≥1000) → 二查 2ms(<300)，load 只 1 次
+PASS 未知路径 → 404 NOT_FOUND
+CLEANUP _selftest-home 已删除
+RESULT: ALL PASS
+  ✔ _selftest-host.mjs
+PASS node --check lib/import-apply.js 退出码 0
+PASS node --check lib/import-formats.js 退出码 0
+PASS node --check lib/collect.js 退出码 0
+PASS node --check lib/index.js 退出码 0
+PASS 1a 落库 200 且 ok
+PASS 1b 写了 6 楼 + 摘要 + 索引 = 8 个文件
+PASS 1c ★ 每个文件的读回 sha256 == 预览 sha256（所见即所写）
+PASS 1d 楼层从 0000 起、6 楼（3 轮 ×2）
+PASS 1e 落盘字节 == floorBodyText 重建值（两个写手同一套约定）
+PASS 1f 索引落盘且条目 id = planId（台账认这份批次）
+PASS 1g 摘要正文落盘在 summaries/<planId>.md
+PASS 1h ★ 路径口径无 playthrough-playthrough-
+PASS 1i 响应里没有合成正文（隐私）
+PASS 1j 计划器零写入（只有落库那趟在写）
+PASS 2a 已有 2 楼 ⇒ 计划从 0002 起
+PASS 2b 落库 200 且楼层不与旧楼冲突
+PASS 2c 旧楼一个字节没动
+PASS 3a 漂移 ⇒ 409 IMPORT_PLAN_STALE
+PASS 3b ★ 一个字节都没写（文件集合与"插队"后的快照逐键相同）
+PASS 3c 报错里说清了"重新 plan"
+PASS 4a 缺 preview ⇒ 400 IMPORT_PREVIEW_REQUIRED
+PASS 4b 没写任何东西
+PASS 4c preview 项缺 sha256 ⇒ 同样 400
+PASS 5a 第一次成功
+PASS 5b-0 重复导入时摘要 id 仍是同一个（同源哈希 ⇒ 同 planId）
+PASS 5b 第二次 ⇒ 409 COLLECT_SUMMARY_EXISTS
+PASS 5c 第二次一个字节都没写
+PASS 5d 楼层也没被重复追加（仍是 6 楼）
+PASS 6a 0 楼 ⇒ 400 IMPORT_NO_TURNS
+PASS 6b 没写索引（不给"声称收了 0 楼"的台账）
+PASS 7a keepGreeting=false ⇒ 计划里仍写楼（greeting 只影响摘要）
+PASS 7b 摘要文件始终存在（批次台账）
+PASS 7c 没有隐藏楼时 keepHidden=false 不影响落库
+PASS 7d 落了 2 楼 + 摘要 + 索引
+PASS 7e 快照对账（确实新增了 4 个文件）
+PASS 8a 有变更请求（PUT/POST）
+PASS 8b 每个变更请求都带同源 Origin（缺了假服务会 403）
+PASS 8c GET 不带 Origin（照 secureTavernApi 口径）
+PASS 9a Tavern 不可达 ⇒ 400 IMPORT_TAVERN_UNREACHABLE
+PASS 9b catalog 里没这个周目 ⇒ 400 COLLECT_TARGET_UNKNOWN
+PASS 9c 没写任何东西
+PASS 10a 合成正文前 12 字在自检输出里零命中
+PASS 10b 成句正文在模块与自检台源码里零命中
+
+ALL PASS (_selftest-import-apply)
+  ✔ _selftest-import-apply.mjs
+PASS node --check lib/import-formats.js 退出码 0
+PASS node --check lib/index.js 退出码 0
+PASS 1a tavern 样本判为 tavern-import-context
+PASS 1b jsonl 样本判为 sillytavern-jsonl
+PASS 1c 散文判为 null（不猜）
+PASS 1d 交叉：minified tavern JSON 不会被当成 jsonl（无 mes+is_user 行）
+PASS 1e 交叉：jsonl 整体不是合法 JSON，判不进 tavern
+PASS 1f 反证：detect 换成「永远第一个」后散文被误判（红）——证明 1c 的 null 来自真判别
+PASS 1g 还原后散文恢复 null
+PASS 2a turns=5
+PASS 2b hidden=2 visible=3（缺 is_system 键算可见）
+PASS 2c lines=6（非空行：1 头 + 5 消息）
+PASS 2d 第 3 行（缺键）确实 visible、第 1 行确实 hidden
+PASS 2e role 按 is_user：true→user / false→assistant
+PASS 2f name/time 带入（有则带）
+PASS 2g CRLF 行尾同样可解析（真 ST 导出常见）
+PASS 2h format 字段与 schemaVersion
+PASS 3a qa[2] 展开为 4 轮
+PASS 3b role 交替 user/assistant
+PASS 3c index 连续从 0
+PASS 3d 楼楼可见（tavern 无隐藏概念）
+PASS 3e greeting 保留为 string
+PASS 3f greeting=null ⇒ 字段缺席（冻结形状 greeting?:string）
+PASS 4 非法 JSON ⇒ 结构化 IMPORT_INVALID 且进程不崩
+PASS 4 qa 非数组 ⇒ 结构化 IMPORT_INVALID 且进程不崩
+PASS 4 qa[i].user 缺失/非 string ⇒ 结构化 IMPORT_INVALID 且进程不崩
+PASS 4 jsonl 中间一行坏 JSON ⇒ 结构化 IMPORT_INVALID 且进程不崩
+PASS 4 反证：摘掉守卫后 4 个畸形输入全崩（裸 JSON.parse / 裸 .map）
+INFO 反证明细：非法 JSON=崩，qa 非数组=崩，qa[i].user 缺失=崩，jsonl 坏行=崩
+PASS 5a maxTurns=3 喂 5 行 ⇒ IMPORT_TOO_MANY_TURNS
+PASS 5b maxBytes=10 喂大文本 ⇒ IMPORT_TOO_LARGE（先查大小再 parse）
+PASS 5c tavern maxTurns=3 喂 qa[2]（=4 轮）⇒ IMPORT_TOO_MANY_TURNS
+PASS 5d 散文走 normalizeImport ⇒ IMPORT_INVALID
+PASS 6a 同文本两次 hash 相同
+PASS 6b 改一字节 ⇒ hash 变
+PASS 6c hash 是 64 位 hex
+PASS 6d 反证：hash 与独立 node:crypto 的 sha256 逐字相等（常量桩必红）
+PASS 7s 路径口径 = characterId/playthroughId 逐字（⛔ 不许出现 playthrough-playthrough-）
+PASS 7a plan ok 且 planId=import-<hash8>
+PASS 7b 楼号从现存最大(0005)+1=0006 起
+PASS 7c 末条是批次摘要 summaries/import-<hash8>.md
+PASS 7d willWrite 每条只有 path/bytes/sha256（无正文）
+PASS 7e ★ 零写入：write 与 mkdir 调用次数都是 0
+PASS 7f list/read 被用过（IO 只走注入面）
+PASS 7g firstTurnPreview 只有 role/chars，无正文
+PASS 7h stats：turns=5 hidden=2 visible=3 greeting=false
+PASS 7i warnings 不含正文（只有判定词与路径）
+PASS 7j floors 目录不存在 ⇒ 从 0000 起 + FROM_ZERO warning，不抛
+PASS 7k 同哈希批次已存在 ⇒ IMPORT_BATCH_EXISTS warning
+PASS 7A1 ★ 覆盖重导：楼号从 0000 起（⛔ 不是 max+1）+ OVERWRITE_FROM_ZERO warning
+PASS 7A2 不勾覆盖时行为不变：楼号仍从 max+1（0005）起、无 FROM_ZERO warning
+PASS 7A3 ★ 导入侧 internal.summaryRel 与 collect 侧 summaryPathOf 逐字相同（写前重核才不会拿错期望值）
+PASS 7A4 覆盖重导：源比归档短 ⇒ IMPORT_OVERWRITE_TAIL warning
+PASS 7l keepHidden=false ⇒ 弃 2 隐藏楼、3 楼照排（00010 起于 0009+1）
+PASS 7m 有 IMPORT_HIDDEN_DROPPED warning
+PASS 7n tavern 计划：4 楼 + 1 摘要，greeting=true
+PASS 7o keepGreeting=false ⇒ greeting=false + DROPPED warning
+PASS 7p source.path 走注入 read ⇒ 同一计划（同 hash8）
+PASS 7q 源读不到 ⇒ IMPORT_SOURCE_UNREADABLE
+PASS 7r 声明格式与识别结果不符 ⇒ IMPORT_FORMAT_UNSUPPORTED
+PASS 7s validateImportInput：8 种坏入参全部 IMPORT_INVALID 拒绝
+PASS 7t 缺省值：format=auto、keepGreeting/keepHidden=true
+PASS 7u importConstants 冻结且两种格式在册
+PASS 7v maxBytes=8MiB / maxTurns=5000
+PASS 7w ★ 楼层内容键集合 Object.keys().sort() 恰为 5 键（多/少一键必红）
+PASS 7x 5 键取值映射：_floor/is_user/is_system/mes/name
+PASS 7y name 缺失 ⇒ 写空串（不塞别的）；role/hidden 落成 is_user/is_system
+PASS 7z 反证：多塞一个键 ⇒ 键集合 ≠ 5 键（断言必红，非橡皮图章）
+PASS 7z2 willWrite 楼层 sha256/bytes 与 floorBodyText 重建值逐条相等（内容即 5 键形状）
+PASS 8 ★ 隐私自证：8 句合成正文的前 12 字在 自检输出/模块/自检台 三处零命中
+INFO 隐私口径：needle 只取前 12 字且只比对命中与否，needle 本身不打印
+ALL PASS (_selftest-import)
+  ✔ _selftest-import.mjs
+== 纯函数套件 · lib/keep-first-round.js（唯一事实源）==
+  PASS lib-R6a 槽位 10200 ⇒ order 10201 且 source=slot
+  PASS lib-R6b 槽位 undefined ⇒ 兜底 10201 且如实标 fallback
+  PASS lib-R6c 槽位抛错 ⇒ 兜底 + fallback
+  PASS lib-R6d 槽位返回非数 ⇒ 兜底 + fallback
+  PASS lib-R4a 首节点 system/message ⇒ firstIdx=1，终点=第 1 个 turn/end(seq3)
+  PASS lib-R4b 无前置 system ⇒ firstIdx=0
+  PASS lib-R4c 没有 turn/end ⇒ null（第一轮还没结束）
+  PASS lib-R4d 开场问候（turn/start 之前）并入第一轮
+  PASS lib-R5a protectSeqs = 第一轮全部 seq（1,2,3）
+  PASS lib-R5b 第二轮的 seq 不在清单里（4,5,6 不出现）
+  PASS lib-R5c ALT 面 = [1,2,3,4,5]（问候在内）
+  PASS lib-R5d 没有完整第一轮 ⇒ []
+  PASS lib-R2a firstRoundText 逐字等于 fixture（两楼 
+ 连接）
+  PASS lib-R2b 没有区间 ⇒ 空串
+  PASS lib-R1a 全 current ⇒ 不注入
+  PASS lib-R2c 任一 shadowed ⇒ 注入
+  PASS lib-R3a bySeq 不可得（null）⇒ 照注入（fail-open）
+  PASS lib-R3b bySeq 缺条目（未知 surface）⇒ 照注入
+  PASS lib-D1 开关关 ⇒ 不注入（优先级最高）
+  PASS lib-D2 没有完整第一轮 ⇒ 不注入（no-first-round）
+  PASS lib-R7a config: keepFirstRound.enabled=true ⇒ 开
+  PASS lib-R7b config: enabled=false ⇒ 关
+  PASS lib-R7c config: 缺 keepFirstRound ⇒ 关（默认关）
+  PASS lib-R7d config: 非布尔（"true"/1）⇒ 关（严格 === true）
+  PASS lib-R7e ★ 预设行形状（modules[]）不认 ⇒ 关
+  PASS lib-R2d 渲染含 <pinnedOpening> 标签与一行前言
+  PASS lib-R2e 渲染逐字包含 fixture 原文
+  PASS lib-R2f 空串/非字符串 ⇒ 不渲染
+  PASS lib-H1 超 8000 字 ⇒ 截断并如实标注「已截断」
+  PASS lib-G1 看守：非我们的段 order ≥ 我们的 ⇒ 恰好点名 other:late@10500
+  PASS lib-G2 看守：不咬自己、容忍形状残缺
+  PASS lib-N1 log-only 剔除、seq 升序、未知 surface ⇒ null（不猜成 current）
+== 纯函数套件 · preset-modules/keep-first-round.js（内联副本防漂移）==
+  PASS mod-R6a 槽位 10200 ⇒ order 10201 且 source=slot
+  PASS mod-R6b 槽位 undefined ⇒ 兜底 10201 且如实标 fallback
+  PASS mod-R6c 槽位抛错 ⇒ 兜底 + fallback
+  PASS mod-R6d 槽位返回非数 ⇒ 兜底 + fallback
+  PASS mod-R4a 首节点 system/message ⇒ firstIdx=1，终点=第 1 个 turn/end(seq3)
+  PASS mod-R4b 无前置 system ⇒ firstIdx=0
+  PASS mod-R4c 没有 turn/end ⇒ null（第一轮还没结束）
+  PASS mod-R4d 开场问候（turn/start 之前）并入第一轮
+  PASS mod-R5a protectSeqs = 第一轮全部 seq（1,2,3）
+  PASS mod-R5b 第二轮的 seq 不在清单里（4,5,6 不出现）
+  PASS mod-R5c ALT 面 = [1,2,3,4,5]（问候在内）
+  PASS mod-R5d 没有完整第一轮 ⇒ []
+  PASS mod-R2a firstRoundText 逐字等于 fixture（两楼 
+ 连接）
+  PASS mod-R2b 没有区间 ⇒ 空串
+  PASS mod-R1a 全 current ⇒ 不注入
+  PASS mod-R2c 任一 shadowed ⇒ 注入
+  PASS mod-R3a bySeq 不可得（null）⇒ 照注入（fail-open）
+  PASS mod-R3b bySeq 缺条目（未知 surface）⇒ 照注入
+  PASS mod-D1 开关关 ⇒ 不注入（优先级最高）
+  PASS mod-D2 没有完整第一轮 ⇒ 不注入（no-first-round）
+  PASS mod-R7a config: keepFirstRound.enabled=true ⇒ 开
+  PASS mod-R7b config: enabled=false ⇒ 关
+  PASS mod-R7c config: 缺 keepFirstRound ⇒ 关（默认关）
+  PASS mod-R7d config: 非布尔（"true"/1）⇒ 关（严格 === true）
+  PASS mod-R7e ★ 预设行形状（modules[]）不认 ⇒ 关
+  PASS mod-R2d 渲染含 <pinnedOpening> 标签与一行前言
+  PASS mod-R2e 渲染逐字包含 fixture 原文
+  PASS mod-R2f 空串/非字符串 ⇒ 不渲染
+  PASS mod-H1 超 8000 字 ⇒ 截断并如实标注「已截断」
+  PASS mod-G1 看守：非我们的段 order ≥ 我们的 ⇒ 恰好点名 other:late@10500
+  PASS mod-G2 看守：不咬自己、容忍形状残缺
+  PASS mod-N1 log-only 剔除、seq 升序、未知 surface ⇒ null（不猜成 current）
+== 伪宿主 apply() · provider 级 ==
+[keep-first-round] 段 rp:firstRound order=10201（来源：官方槽位 DEPLOYMENT_PERSONA_SUFFIX=10200 + 1）
+[keep-first-round] 宿主未暴露段表列举 ⇒ 装配期看守不可得；段序冲突由装配捕获（name+order）与面板侧核对。
+[keep-first-round] 已挂载；开关读 <DSH_HOME>/dsh-memory-archive/config.json 的 keepFirstRound.enabled（当前 开，改开关下一轮生效）
+  PASS P1 段已注册：name=rp:firstRound、order=10201（槽位 10200+1）
+  PASS P2 日志如实标注来源=官方槽位
+  PASS P3 还没刷新 ⇒ 无缓存 ⇒ 不注入
+  PASS P4 R1·provider：第一轮仍全部 current ⇒ 不注入
+  PASS P5 R2·provider：已 shadowed ⇒ 注入，且逐字含 fixture 原文
+  PASS P6 开关改 config（不改预设/不重启）⇒ provider 下一轮即停
+  PASS P7 开关改回 ⇒ 下一轮恢复注入（仍逐字）
+  PASS P8 config 文件没了 ⇒ 默认关 ⇒ 不注入
+[keep-first-round] 段 rp:firstRound order=10201（来源：兜底值：官方槽位取不到，用写死常量 10201）
+[keep-first-round] 宿主未暴露段表列举 ⇒ 装配期看守不可得；段序冲突由装配捕获（name+order）与面板侧核对。
+[keep-first-round] 已挂载；开关读 <DSH_HOME>/dsh-memory-archive/config.json 的 keepFirstRound.enabled（当前 关，改开关下一轮生效）
+  PASS P9 槽位缺席 ⇒ order=兜底 10201 且日志如实标注「兜底值」
+[keep-first-round] 段 rp:firstRound order=10201（来源：官方槽位 DEPLOYMENT_PERSONA_SUFFIX=10200 + 1）
+[keep-first-round] ⚠ 聊天记录区开头已被顶掉：以下段的 order ≥ 我们的 10201（rp:firstRound）⇒ someone:late@10500。注入位置语义已不成立，⛔ 不自动挪，请人工处理。
+[keep-first-round] 已挂载；开关读 <DSH_HOME>/dsh-memory-archive/config.json 的 keepFirstRound.enabled（当前 关，改开关下一轮生效）
+  PASS P10 看守·apply 级：非我们的段 order ≥ 我们的 ⇒ 明确 warn「已被顶掉」
+== 反证（真·变体测试，🔴 是预期结果）==
+  PASS M-R1 反证R1：去掉"仍在 ⇒ 跳过"（改成照注入）⇒ R1 红
+  PASS M-R2 反证R2：注入内容换成摘要文本 ⇒ R2 红
+  PASS M-R3 反证R3：fail-open 改 fail-closed ⇒ R3 红
+  PASS M-R4 反证R4：起点改成"第一个 turn/start" ⇒ R4 红
+  PASS M-R5 反证R5：protectSeqs 丢掉一个 seq ⇒ R5 红
+  PASS M-R6 反证R6：主路径硬编码 58 ⇒ R6 红
+  PASS M-R7 反证R7：开关改成读预设行 ⇒ R7 红
+== 写面 · lib/preset-modules.js ==
+  PASS W1 挂载行：恰好三行（注释 + id 行 + name 行）
+  PASS W2 清单：默认两件不变 + 全量四件含 keep-first-round.js 与 memory-protocol.js（2026-09-18 增后者）
+  PASS W3 包内第三 / 第四副本都存在且可读（随包发版）
+  PASS W4 四件首次写入全是 create 且 ok
+  PASS W5 四件盘上逐字等于包内副本
+  PASS W6 幂等：第二次全 skip、touched:false、零新增备份
+  PASS W7 用户手改 ⇒ 先备份（与旧内容逐字相等）再覆盖成包内副本
+  PASS W8 默认清单仍是两件（既有自检台契约不破）
+== R8 · 隐私 ==
+  PASS R8 夹具前 12 字在 模块/自检台/lib 核心/自检输出 四处零命中（长度与布尔才可出镜）
+
+—— 汇总 ——
+PASS 90 / FAIL 0
+反证R1红证：变体导入后正断言变红（M-R1）
+反证R2红证：变体导入后正断言变红（M-R2）
+反证R3红证：变体导入后正断言变红（M-R3）
+反证R4红证：变体导入后正断言变红（M-R4）
+反证R5红证：变体导入后正断言变红（M-R5）
+反证R6红证：变体导入后正断言变红（M-R6）
+反证R7红证：变体导入后正断言变红（M-R7）
+自检台：全绿（含 R1–R7 七条反证的红）
+  ✔ _selftest-keep-first-round.mjs
+
+L1 常量与位置
+  ✔ L1a 版本是正整数
+  ✔ L1b 段名是 mt:lastFloors
+  ✔ L1c order = 10202（倒数第二）
+  ✔ L1d ★ 反证：order 必须 > rp:firstRound 的 10201
+  ✔ L1e ★ 反证：order 必须 < mt:postHistory 的 10203（后处理提示词留在最后）
+  ✔ L1f 默认值合理（2026-09-19 起：默认 5 楼）
+  ✔ L1h ★ 上下文阈值 = 5000 字（用户口径：少于 5000 字才注入）
+  ✔ L1g 前言含"已经发生过"与"承接"两个硬说明
+
+L2 readSwitch：只在严格 true 时开
+  ✔ L2.undefined 形状「undefined」⇒ 关且不抛
+  ✔ L2.null 形状「null」⇒ 关且不抛
+  ✔ L2.数组 形状「数组」⇒ 关且不抛
+  ✔ L2.字符串 形状「字符串」⇒ 关且不抛
+  ✔ L2.数字 形状「数字」⇒ 关且不抛
+  ✔ L2.空对象 形状「空对象」⇒ 关且不抛
+  ✔ L2.lastFloors 是 null 形状「lastFloors 是 null」⇒ 关且不抛
+  ✔ L2.lastFloors 是数组 形状「lastFloors 是数组」⇒ 关且不抛
+  ✔ L2.enabled 缺 形状「enabled 缺」⇒ 关且不抛
+  ✔ L2.enabled = "true" 形状「enabled = "true"」⇒ 关且不抛
+  ✔ L2.enabled = 1 形状「enabled = 1」⇒ 关且不抛
+  ✔ L2.enabled = false 形状「enabled = false」⇒ 关且不抛
+  ✔ L2.on enabled:true ⇒ 开
+
+L2b 数值键：非法的回落默认、越界的夹住
+  ✔ L2b-1 缺 count/maxChars ⇒ 用默认
+  ✔ L2b-2 字符串数字 ⇒ 回落默认（不猜）
+  ✔ L2b-3 过小 ⇒ 夹到下界
+  ✔ L2b-4 过大 ⇒ 夹到上界
+  ✔ L2b-5 小数 ⇒ 截断取整
+
+L3 pickRecentFloors
+  ✔ L3a 非数组 ⇒ []
+  ✔ L3b 空数组 ⇒ []
+  ✔ L3c count 0 ⇒ []
+  ✔ L3d count 负数 ⇒ []
+  ✔ L3e ★ 取的是**最后** N 楼
+  ✔ L3f ★ 返回仍是**升序**（时间顺序）
+  ✔ L3g count 超过总数 ⇒ 全给
+  ✔ L3h ★ 剔掉形状不对的（无楼号 / 非对象）
+  ✔ L3i text 非字符串 ⇒ 空串（不猜）
+
+L4 renderRecentFloors
+  ✔ L4a 空输入 ⇒ 空串（宿主不注入空段）
+  ✔ L4b 有壳
+  ✔ L4c 含前言
+  ✔ L4d 玩家楼标「你」
+  ✔ L4e 非玩家楼用 name
+  ✔ L4f name 缺失 ⇒ 「叙事」
+  ✔ L4g 楼号补零到 4 位
+  ✔ L4h ★ 顺序是旧→新（时间顺序）
+  ✔ L4i ★ 反证：没超预算时**不**出现省略标注
+
+L5 超预算 ⇒ 丢最旧的、留最新的、如实标注
+  ✔ L5a 有省略标注且写明丢了几楼
+  ✔ L5b ★ 最新那楼一定在
+  ✔ L5c ★ 最旧那楼一定不在
+  ✔ L5d ★ 保留的确实是尾部连续段
+  ✔ L5e ★ 反证：一楼都装不下 ⇒ 空串（不吐半个壳）
+
+L6 decideInject 真值表（★ 触发条件：上下文 < 5000 字）
+  ✔ L6a switch-off ⇒ inject=false
+  ✔ L6b context-full ⇒ inject=false
+  ✔ L6c short-context ⇒ inject=true
+  ✔ L6d context-unknown ⇒ inject=false
+  ✔ L6e first-turn ⇒ inject=true
+  ✔ L6f no-floors ⇒ inject=false
+  ✔ L6g empty-render ⇒ inject=false
+  ✔ L6h ★ 反证：undefined 输入不抛且判不注入
+  ✔ L6i ★ 边界反证：4999 注、5000 不注、5001 不注（"少于"不含等于）
+  ✔ L6j ★ 分水岭反证（与旧口径的区别）：上下文短 ⇒ **不是首轮也注**；上下文长 ⇒ **首轮也不注**
+  ✔ L6k ★ 反证：字数算不出（undefined/null/NaN/负数/字符串/对象）且不是首轮 ⇒ 一律不注（fail-closed）
+
+L6b contextIsShort（段 provider 用的那个门）
+  ✔ L6b-1 字数已知且 < 阈值 ⇒ true
+  ✔ L6b-2 ★ 边界：等于阈值 ⇒ false（"少于"不含等于）
+  ✔ L6b-3 字数 0（全新会话）⇒ true
+  ✔ L6b-4 字数很长 ⇒ false
+  ✔ L6b-5 ★ 回退：字数算不出 + 首轮 ⇒ true
+  ✔ L6b-6 ★ 回退：字数算不出 + 非首轮 ⇒ false（判不出就不注）
+  ✔ L6b-7 ★ 反证：坏形状不抛（null/NaN/Infinity/负数/字符串/对象/undefined）
+
+L7 findOrderConflicts
+  ✔ L7a 非数组 ⇒ []
+  ✔ L7b ★ 反证：我们自己的 mt:postHistory@10203 **不算**冲突
+  ✔ L7c ★ 外来段 ≥ 10202 ⇒ 报
+  ✔ L7d 外来段 < 10202 ⇒ 不报
+  ✔ L7e 无 order / 坏条目 ⇒ 跳过不抛
+  ✔ L7f ourOrder 非数 ⇒ 不放炮
+
+L7b isFirstTurn（轮号 → 是不是首轮）
+  ✔ L7b-1 轮号 1 ⇒ 首轮（真机实测：turnBoundary.lastTurn 首轮就是 1）
+  ✔ L7b-2 轮号 0 ⇒ 首轮（另一种语义：已完成轮 0 起）
+  ✔ L7b-3 轮号 2 ⇒ 不是首轮
+  ✔ L7b-4 轮号 5 ⇒ 不是首轮
+  ✔ L7b-5 负数/NaN/undefined/null/字符串 ⇒ 一律不是首轮（判不出就不注）
+  ✔ L7b-6 ★ 反证：旧写法 `=== 0` 会把首轮（轮号 1）判成 false —— 这正是真机 chars=0 的原因
+
+L8 端到端：readSwitch → pick → render → decide
+  ✔ L8a 整链通：上下文 100 字 ⇒ 注入且拿到 3 楼
+  ✔ L8b ★ 反证：同一套配置把上下文换成"够长"（5000 字）⇒ 一个字都不注
+  ✔ L8c ★ 反证：开关关 ⇒ 一个字都不注
+
+── 82 通过 / 0 失败 ──
+  ✔ _selftest-last-floors.mjs
+[PASS] ★1 活会话命中：snapshotEvents 给 2 条、readSession 抛 seeded 错 ⇒ via=live、events 逐条相同、session=live.header
+[PASS] ★2 反证：ctx 无 sessions、readSession 抛 seeded 错 ⇒ loadSessionLog 必须真的抛（message 含 inherited prefix，证明旧路径确实会失败）
+[PASS] ★3 反证：snapshotEvents() 给空数组 ⇒ 不算命中，必须落到 via=readSession（⛔ 不把空当成功）
+[PASS] ★4 ctx.sessions=undefined + readSession 正常 ⇒ via=readSession，events 与改动前 extractEvents 抽取逐条相同（两种快照形状）
+[PASS] ★5 旧宿主形状：sessions.get 不是函数 ⇒ 不抛、走②（ctx={} / sessions={} / get 是字符串 三种都探一遍）
+[PASS] ★6 防"只改一半"：两源文件里 `.readSession(` 只许在 loadSessionLog 助手内部（index.js ≤1 且位置在助手内；sections-capture.js = 0）
+[PASS] ★7 活会话优先：readSession 明明能成功也必须走 live（①是首选，不是兜底）
+[PASS] ★8 snapshotEvents 抛异常 ⇒ 只当没命中，退回 readSession（探测路径⛔ 不许把异常往外冒）
+
+== 汇总：8 通过 / 0 失败 ==
+  ✔ _selftest-load-session-log.mjs
+PASS estimateBytes('abc') === 6（UTF-16 口径）
+PASS estimateBytes([1,2,3]) > 0
+PASS estimateBytes(null)/undefined 不炸
+PASS 循环引用不炸、返回有限正数
+PASS 菱形共享不炸
+PASS estimateBytes 不调用 JSON.stringify
+PASS 20 万事件估算 ≈ 真实量级（147 MB，手算口径 ≈ 162 MB）
+PASS 20 万事件估算耗时 <100ms（实测 0.2 ms）
+PASS 新缓存 size===0 && bytes===0
+PASS 塞 5 条各 ~100B ⇒ size===3（条数 LRU）
+PASS 塞 5 条各 ~100B ⇒ bytes<=1000（字节限额内）
+PASS 留下的恰好是最新 3 条
+PASS 最旧两条已被淘汰
+PASS 单条 2000B 塞 maxBytes=1000 ⇒ set 返回 false
+PASS 被拒后 size===0
+PASS 被拒后 bytes===0
+PASS 已有 1 条时再拒大条 ⇒ size 仍 1、bytes 仍 ~100
+PASS LRU：get(a) 后插入 d ⇒ 淘汰 b、留下 a
+PASS LRU：再插入 e ⇒ 淘汰 c，a 仍留到最后
+PASS 同 key 覆盖 ⇒ bytes 按新值计（200，不是 300）
+PASS 字节压力淘汰：3×400B 进 maxBytes=1000 ⇒ 只留 2 条、bytes≤1000
+PASS 字节压力淘汰：留下的恰是最新两条
+PASS delete 回收字节
+PASS clear 清空
+
+ALL PASS
+  ✔ _selftest-mem-budget.mjs
+== _selftest-memory-protocol.mjs · 记忆检索协议条款（D13 前置）==
+  PASS ① 默认文本为空（占位）—— 模块里⛔ 不许塞草稿，否则"没填"长得像"填了"
+  PASS ② resolveProtocolText：text 优先 / 两头空白去掉 / extra 追加在后面 / 畸形入参不抛
+  PASS ③ 空文本：段**照注册**（位置占住、面板可见「空」），并且写一条含「占位未填」的 warn
+  PASS ④ 有文本：段文本**逐字**等于配置给的（⛔ 不加前缀/后缀/换行），并如实报字数
+  PASS ⑤ ★ 文本含 `{{…}}` ⇒ **拒绝注册** + 告警（DSH 会当提示词变量让整轮失败）—— 且⛔ 不清洗
+  PASS ⑥ 服务缺失 / 注册抛错 ⇒ 降级返回，**绝不抛**（模块抛 = 预设挂不上 = 开不了周目）
+  PASS ⑦ order 默认 1；config.order 可覆盖（且非数就回落默认）
+  PASS ⑧ 段名带本仓库自建段的 `mt:` 前缀；源文件里⛔ 不出现任何真实会话内容
+
+== 汇总：8 通过 / 0 失败 ==
+  ✔ _selftest-memory-protocol.mjs
+PASS ① 常量：工具名 memory_write、目录 .roleplay-memory（与社区预设同名）、模式三种
+PASS ② 开关：坏形状/字符串 true/1/enabled:false ⇒ 一律关，且不抛
+PASS ② 开关：enabled:true ⇒ 开
+PASS ② 开关：maxChars 非法 ⇒ 回落默认；越界 ⇒ 夹住；小数 ⇒ 取整
+PASS ③ switch-off：开关关 ⇒ 不写（⛔ 即便参数齐全）
+PASS ③ no-path：路径空/纯空白/非字符串 ⇒ 不写
+PASS ③ no-path：路径不是字符串 ⇒ 不写（⛔ 不 String 化）
+PASS ③ empty-text：空文本/纯空白 ⇒ 不写（⛔ 不写空文件）
+PASS ③ bad-mode：不认识的状态 ⇒ 不写（⛔ 不回落成覆盖写）
+PASS ③ over-budget：超预算 ⇒ **拒收**（⛔ 不截断硬写）
+PASS ③ ok：参数齐全 ⇒ 写，默认模式 overwrite
+PASS ③ ok：append 显式给 ⇒ 按 append
+PASS ③ ok：replace 显式给 ⇒ 按 replace（★20260924 新增那一项）
+PASS ③ ok：mode 空串 ⇒ 当默认 overwrite
+PASS ③ 边界反证：正好等于预算 ⇒ 放行；多一字符 ⇒ 拒收（判据是 > 不是 >=）
+PASS ③ ★反证：undefined/空对象 ⇒ 一律不写且不抛
+PASS ★R① replace（find 唯一）⇒ ok，next 里那一处真的被换掉、旧文不再出现
+PASS ★R①★ 别处**一个字没变**（作者那两段逐字还在；全文 = 原文只挖掉 find、原位塞进新文本）
+PASS ★R①★★ 覆盖前**必须备份**（replace 动了已存在的文件 ⇒ backup:true；替换掉的字符数照实报）
+PASS ★R② find 找不到 ⇒ 拒收（⛔ 不猜、⛔ 不新建）
+PASS ★R③ find 出现 2 次 ⇒ 拒收（**多义不猜** —— 换哪一处都是猜）
+PASS ★R③反证：把"≥2 次 ⇒ 拒"挖掉、改成"替换第一处"（上一版最省事的写法）⇒ 上面那条必红
+PASS ★R④ find 空 / 纯空白 / 非字符串 ⇒ 拒收（reason:no-find；⛔ 不拿空串当 find）
+PASS ★R⑤ current === null（文件不在）⇒ 拒收（reason:no-file；⛔ replace 不是新建手段）
+PASS ★R⑥ overwrite ⇒ next = text；**已存在 ⇒ backup:true**（整份被换掉，replacedChars = 原文全长）
+PASS ★R⑥b overwrite 但文件不在（新建）⇒ backup:false（没有旧文可备份，⛔ 不凭空造一份 .bak-）
+PASS ★R⑥c append ⇒ next = 现文 + text，**不备份**（只往后加，不丢旧文）
+PASS ★R⑧ 坏模式 ⇒ 拒收（reason:bad-mode；⛔ 不回落成覆盖写）
+PASS ★R⑨ 纯函数：认不出的入参也算得出来、⛔ 不抛（`current` 非字符串 ⇒ 当"文件不在"）
+PASS ★D① replace + text:''（纯删除）⇒ **整条链放行**：decide 说"写"（reason:ok / chars:0）且 plan 的 next **逐字等于**"把 find 那一段剪掉"（⛔ 不是清空、⛔ 不是整份重写）
+PASS ★D①★ 别处**一个字没变**：作者那段与"下次续写提示"逐字还在，那一段整段没了（长度 = 原文 − find 那一段）
+PASS ★D①★★ 删除前**照样先备份**（replace 恒 backup:true；删掉多少字符照实报）—— ⛔ 删除也要可撤销
+PASS ★D②反证：把"replace 允许空"挖掉（回到上一版那道**不分 mode**的闸：空文本一律拒收）⇒ ★D① 必红
+PASS ★D③ ★口径分叉（三条并排，同一份夹具）：`overwrite` + text:'' ⇒ **拒**、`append` + text:'' ⇒ **拒**、`replace` + text:'' ⇒ **放行**（⛔ 免得以后有人"顺手统一"成一种口径）
+PASS ★D③反证：把三种口径"顺手统一"（一律拒 ⇒ replace 那条红；一律放行 ⇒ 另两条红）⇒ ★D③ 必红
+PASS ★D④ `replace` 的 `text` **必须是字符串**（空串才算"留空"）：undefined / 42 / null / {} ⇒ 照旧拒（reason:empty-text）—— ⛔ 不替模型把"没给 / 给错类型"猜成空
+PASS ★D⑤ 两层分工：`planNoteWrite` 那一层**不分 mode**地"非字符串 / 没给 ⇒ 当空串"（既有归一化，本单没动）⇒ replace 下也是纯删；**拦非字符串的活是 `decideNoteWrite` 那道闸**（★D④）
+PASS ★M① 段模式（换）：`find` = 标记行＋紧跟的标题行 ⇒ 只换掉"标记行＋那一行标题＋它的正文"，结尾那个标题行（`## 作者的维护要求`）原样留着
+PASS ★M①★ 别处**一个字没变**：段一逐字还在、作者那节逐字还在（⛔ 段里不含结尾那个标题行）；替换掉的字符数照实报 = 被换掉那一段的长度
+PASS ★M② 段模式（删）：`text:''` ⇒ **整段删** —— 前后一个字节都没多删（逐字节等于"把那一整段剪掉"）
+PASS ★M②反证：把"段的结尾边界"挖掉（只认下一个**标记行** ⇒ 上一版最省事的写法）⇒ ★M② 那条"逐字节等于"必红（它会把作者那一节连标题一起吃掉）
+PASS ★M②反证（同一处的另一面）：段尾边界松一格（把结尾那个标题行也吃进段里）⇒ 同样必红（作者那节的标题会没掉，只剩正文）
+PASS ★M③ 四段并存 ⇒ 指定「导演笔记」那一段：只它没了，其余三段（最近进展／当前时间地点／下次续写提示）与作者那节**逐字**还在（逐字节等于手工剪出来的那份）
+PASS ★M③b 同上（换那一段）：只有「下次续写提示」那一段变，另外三段与作者那节逐字不动
+PASS ★M③反证：**不看** `find` 里那一行标题（只认"第一处标记行"）⇒ 上面两条必红（`find` 写着「导演笔记」，动手的却是「最近进展」那一段）
+PASS ★M④ 标记夹在行中间（`〔AI 自记〕 ## 最近进展`，行里还有别的字）⇒ **不算**标记行 ⇒ 走**逐字模式**：换掉的正好是那一小段字面（`replacedChars` = 它的长度），真的那一段标记段**一字未动**
+PASS ★M④b 同上（`- 〔AI 自记〕`：行首有 `- `）⇒ 照旧逐字模式（`replacedChars` = 它的长度，不是段长）
+PASS ★M④反证：把"**整行** trim 后等于标记"松成"**含**标记"（`find.includes(MARK)`）⇒ ★M④ 必红：那两条会被当成段模式，去换真的那一段（`replacedChars` 变成段长、真段也没了）
+PASS ★M⑤反证：`find = '〔AI 自记〕'` 而文件里有 4 处 ⇒ **find-ambiguous**（沿用现有 reason 名，⛔ 不新造；`next` 必须是 null —— ⛔ 不许"替换第一处"）
+PASS ★M⑤反证（同一处的另一面）：把"多义 ⇒ 拒"挖掉、改成"换第一处"⇒ 上面那条必红
+PASS ★M⑥反证：标记行后面直接是**文件末** ⇒ 段＝**标记行本身**（不炸、不吐空）：正好剪掉那一行、前面那一节逐字还在，`replacedChars` = 标记行的长度（⛔ 不是 0）
+PASS ★M⑥b 同上（整份就只有那一行标记）：删 ⇒ 空文（`ok` 仍为 true、`replacedChars` = 标记行长度）；给 `text` ⇒ 就是整段新内容（标记行不算"没有段"）
+PASS ★M⑦反证：文件里**一处标记都没有** ⇒ find-missing（⛔ 不许凭空造一段）
+PASS ★M⑦b 标记行找到了、但它后面跟的不是 `find` 里写的那一行 ⇒ **find-missing**（⛔ 不许"对不上就当第一段" —— 那正是会误删别人内容的那一脚）
+PASS ★M⑧（相）常量：`NOTE_SELF_MARK` 就是 persona §5 里写的那个字面（逐字，一个字符都不许改）
+PASS ★M⑧b ★唯一真相：`lib/index.js` 里的标记**只从常量来**（引用 `NOTE_SELF_MARK`、⛔ 没把字面重打一遍）—— 重打一遍就迟早两处不一致（persona §5 那一处一致不一致由 `_selftest-preset-persona.mjs` 钉）
+PASS ★M⑨ 逐字模式照旧：重叠出现算两处（`aa` 在 `aaa` 里 ⇒ find-ambiguous，`at + 1` 那套算法没动）；不是标记行开头的 `find` 照旧逐字替换（段模式**没有**把它挤掉）
+PASS ★U① ★闸**不分 mode**：同一份上限（500）下 501 字符的 `text`，overwrite / append / replace 一律 over-budget（⛔ 没给 replace 开小门），且数字照给（chars / maxChars）—— `replace` 的 `text` 也受同一个上限管
+PASS ★U①b 边界仍按**配置给的那个数**算（正好 500 ⇒ 放行、501 ⇒ 拒）：⛔ 没新造阈值、⛔ 没改默认值
+PASS ★U①反证：给 `replace` 开一道小门（"replace 不算预算"那种最顺手的写法）⇒ ★U① 必红
+PASS ★U② ★**瘦身本来就过得了**（用户口径「把一整段换成更短的一段」）：`find` 指到三万字那一大段、`text` 只给一小段 ⇒ 闸放行；plan 落地后那一大段没了、**别处逐字还在**（含作者那一大节）
+PASS ★U②b 闸看的是 `text` 的长度，⛔ **不是结果文件的长度**：上面那一脚落地后文件仍有 30052 字符（≫ 上限 20000，因为作者那一大节还在）⇒ 这正是"瘦身永远放行"的原因（⛔ 别哪天顺手改成"看文件总长"）
+PASS ★U②反证：把闸改成"看结果文件总长"（那一版最省事的写法）⇒ ★U② 必红（瘦身会被它拒掉）
+PASS ★U②c 同一个上限：`text` 一旦**超过**上限（把 `find` 那一大段原样抄回去当 text）⇒ 照旧拒收（⛔ 不为"瘦身"放宽判据 —— 瘦身过得了是因为 `text` 短，不是因为 mode 是 replace）
+PASS ★I1 覆盖写 ⇒ 先备份再写：盘上多出一个 `.bak-`，内容 = 旧文**逐字节**
+PASS ★I1b 备份名里**没有冒号**（Windows 文件名不许有 `:`）—— 所以时间戳用 `deadzone.stampNow()` 那种形式
+PASS ★I2 replace ⇒ 盘上那一小段被换掉、别处一字未动（`.bak-` 里是改前那一份）
+PASS ★I3 拒收 ⇒ 盘上**零变化**：文件逐字节没变、也没多出任何 `.bak-`
+PASS ★I3b 反证（同一条的另一面）：同一次调用若**换了唯一的那一段**就一定会写盘 ⇒ 上面"没写"不是因为它压根不写
+PASS ★I4 replace + text:'' ⇒ 盘上那一小段被**剪掉**、前后两行逐字还在（不是清空、不是整份重写）；`.bak-` 里是**删前**那一份 ⇒ 删除也可撤销
+PASS ★I5 段模式（真盘面，`text:''`）：那一整段被剪掉、作者那一节与上一段**逐字节**还在（= 手工剪出来的那份）；`.bak-` 里是**删前**逐字节
+PASS ★E1 真接线：`apply()` 之后 `memory_write` 注册上了（缺它 ⇒ 后面几条无从谈起）
+PASS ★E1b ★ enum 三档（★ 模型看到的就是这一份；少了 replace ⇒ 本单的手段它够不着）
+PASS ★E1c ★ `find` 参数在 + 参数表只认这两个新名字（path / text / mode / find）
+PASS ★E1d 描述里把三种模式说全（overwrite 说"会先自动留一份备份"、replace 说"逐字"与"会被拒收"）
+PASS ★E1e ★（20260925）"`replace` 时 `text` 留空 = 把那一整段删掉"写在**模型看得到的那一份**里（描述 ＋ text 参数）
+PASS ★E2 真工具 replace：文件里那一小段被换掉、别处一字未动；回执照实报 mode 与替换字符数
+PASS ★E2b ★ 动过已存在的文件 ⇒ 备份在盘上，内容是**改前逐字节**（不可逆这件事真拆掉了）
+PASS ★E3 找不到 ⇒ 拒收，理由点明"先 read 一遍"（⛔ 不是 `拒写：find-missing` 这种黑话）
+PASS ★E3b 多义 ⇒ 拒收，理由说清"出现了几次"（`## ` 在现文里 3 次）并要它"给长一点、能唯一确定的一段"
+PASS ★E3c replace 指到**不存在**的文件 ⇒ 拒收，并告诉它"新建请用 overwrite"
+PASS ★E3d ★ 三次拒收之后盘上**零变化**：文件逐字节没变、一份 `.bak-` 都没多、也没多出 notes.md
+PASS ★E3e ★反证（同一条的另一面）：`find` 指对了就一定会写盘 ⇒ 上面"没写"不是因为它压根不写
+PASS ★E4 append 到**不存在**的文件 ⇒ 新建（盘上没有旧文 ⇒ ⛔ 不凭空造 `.bak-`）
+PASS ★E4b overwrite 已存在的文件 ⇒ 先备份再写（`.bak-` 现在是两份，且新的那份 = 上一版逐字节）
+PASS ★E5 真工具 replace + text:''（纯删除）：那一行被删掉、前后两行逐字还在；回执 mode=replace / chars=0 / replacedChars=那一段长度
+PASS ★E5b ★ 删除**也先备份**：`.bak-` 里是删前逐字节（"不可逆"这件事在删这一脚上同样拆掉了）
+PASS ★E5c 回执那行字说得对（"删掉 N 字符"；⛔ 不写"替换掉 N 字符，0 字符"）
+PASS ★E6 ★口径分叉（工具那一侧）：`overwrite` + text:'' / `append` + text:'' ⇒ 都**抛错**，理由点出"text 不能空"并指一条出路（要删那一段就用 replace 留空）
+PASS ★E6b 那两次拒收之后盘上**零变化**：文件逐字节没变、也没多出 `.bak-`
+PASS ★E7 ★（20260925）标记字面在**模型看得到的那一份**里逐字就是 `NOTE_SELF_MARK`（工具描述 ＋ `find` 参数说明）
+PASS ★E8 真工具（段模式的多义）：`find` 只给标记行、盘上有**两段** ⇒ 拒收，理由说清"出现了 2 次"并要它"给长一点"（模型照做就能改对）
+PASS ★E8b 那一次拒收之后盘上**零变化**（逐字节没变、没多出 `.bak-`）
+PASS ★E8c 真工具（段模式，`text:''` 整段删）：只有「当前时间地点」那一段被删（连它后面那个空行）、「最近进展」那段与**作者那节**逐字节还在；回执 mode=replace / chars=0 / replacedChars=那一段长度
+PASS ★E8d ★ 段模式**也先备份**：`.bak-` 里是**删前**逐字节（"不可逆"这件事在这一脚上同样拆掉了）
+PASS ★E9 ★（20260926）撞单次上限 ⇒ 回执把**三件事**说全：①数字（这一段 N 字符 / 单次上限 M）②为什么（笔记在长胖 / 那几段该"每轮替换、只留最新"）③怎么优化（`replace`＋`text:''` / 最早场记压成一行、伏笔挪 `world.md` / `index.md` 按骨架整段换掉）—— ⛔ 不再是干巴巴一句"超了"
+PASS ★E9b ★顺序口径：**先优化、再写** —— "拆成两次写"若出现，必须排在"先优化"**之后**（⛔ 不许再把它当第一出路：拆两次只会让笔记更长）
+PASS ★E9c 反证：把"怎么优化"那一段剪掉 ⇒ ★E9 **必红**；拿**上一版那句**（只给"拆成两次写"）来算 ⇒ 同样必红（三件事里少一件就不算数）
+PASS ★E9d ★ 模型看得到的那一份（工具描述 ＋ `text` 参数）把"撞上限"指向**优化**，⛔ 不再写"拆成两次写"（那一句只留在**回执**里，且排在"先优化"之后 = 最后一档退路）
+PASS ★E9e ★ 这一次拒收**盘上零变化**：文件逐字节没变、没多出 `.bak-`、也没多出别的文件
+PASS ★S1 沙箱三态与上游同源（read-only / workspace-write / danger-full-access）
+PASS ★S2 foldSandboxMode：**最后一个**有效值胜出（中间被改回来也算）
+PASS ★S3 foldSandboxMode：认不出的取值忽略；一条都没有 / 畸形输入 ⇒ null（⛔ 不猜）
+PASS ★S4 sandboxDecision：**只读 ⇒ 拒写**；其余（含认不出）⇒ 放行
+PASS ★S5 反证：认不出（null）⇒ 放行，⛔ 不许改成"认不出就拒"
+PASS ★S6 接线：先 foldSandboxMode(sessionEventsOf(…)) 再 planNoteWrite 再 applyNoteWrite（顺序不许反）
+PASS ★S6b 接线：写盘只有 `applyNoteWrite` 这一处（⛔ 别在 execute 里再直接 writeFileSync/appendFileSync 落一次）
+PASS ★S7 接线：拒写时点名怎么恢复（RP 模式 / /rp off），⛔ 不说"绕过"
+PASS ★S8 工具接线：mode 的 enum 认到 replace（★ 模型看得到的那一份）
+PASS ★S8b 工具接线：`find` 参数在（replace 专用），且描述里点名"逐字"与"拒收"
+PASS ★S8c 工具接线：拒收理由翻成人话（找不到 ⇒ 先 read；多义 ⇒ 给长一点、能唯一确定的一段）
+
+── 111 通过 / 0 失败 ──
+  ✔ _selftest-memory-write.mjs
+[PASS] 总数/最新下标 + 被压缩遮蔽的行不出现（13/14 被 shadowedSeqs 剔除，摘要行 isCompacted:true）
+[PASS] 默认返回最后 N 条（limit=3 ⇒ index 5..7，绝对下标），from/limit 显式分页
+[PASS] preview 只放首行截断，chars 是全文长度
+[PASS] turn 归属：楼内行取所在楼；压缩摘要行归它所在的楼
+[PASS] 空会话：total:0、messages:[]、latestIndex:null（W0 增量 2）
+[PASS] 解析失败：ok:false + error.code=session-parse-failed + total:0 + latestIndex:null（与空会话可区分）
+[PASS] part=messages 带 count + messages 行数组（W0 增量 5）
+[PASS] ★ 甲（2026-09-18）：part=messages&seq= ⇒ 只回那一条的**原样**对象；⛔ 不许拿拼装结果冒充、不许给没落位的 seq
+[PASS] 参数卫兵：limit=0 / from=-1 / 缺 id ⇒ ok:false 且不抛
+[PASS] ★ 2026-09-20：本插件注入的 user 消息**照旧在对话历史里**（用户口径：「需要给出并标红」），并逐行带出 sourcePlugin
+[PASS] ★ 反证：source.kind 缺失（老日志）⇒ 逐行给 null，⛔ 不猜成"玩家发的"
+
+summary: 11 passed, 0 failed :: _selftest-messages
+  ✔ _selftest-messages.mjs
+PASS node --check lib/mt-compaction.js 退出码 0
+PASS 生成器连调两次逐字节相同（确定性）
+PASS 产物约定文件名常量 = mt-compaction-rp.js
+PASS 生成物 import() 不抛异常（import 期绝不抛 = preset 挂得上的前提）
+PASS import() 拿到类（default 是 function）
+PASS 模块元数据 name/inject/LANGUAGES 就位
+PASS in-repo import（锚点全打不开官方包）如实降级：degraded 非 null 且报出两个包名与每条锚点原因
+PASS 降级时大声 console.error（import 期唯一发声渠道）
+PASS resolveInstruction 非空 customInstruction + auto ⇒ 整段替换、一字不增
+PASS resolveInstruction 非空 + zh ⇒ 追加中文提示
+PASS resolveInstruction 非空 + en ⇒ 追加英文提示
+PASS resolveInstruction 空 + auto ⇒ anima 总结提示词原文（逐字）
+PASS resolveInstruction 空 + en ⇒ 同一份 anima 原文（anima 自带语言声明，不另出英文版）
+PASS faithful 不再分叉（anima 原文自带逐字/语言要求，没有第二份变体）—— 显式记录该语义变更
+PASS 4b-0 renderSummaryInput 已导出（生成物导出面）
+PASS 4b-1 只留下 2 条（玩家发言 + AI 正文），其余全摘除
+PASS 4b-2 ★ 系统提示词整条丢（那份近场原文 `[楼 0253]` 一个字都不许进来）
+PASS 4b-3 ★ 思维链摘除（reasoning 的正文一个字不许进来）
+PASS 4b-4 ★ 工具调用摘除（tool-call 的 arguments 不许进来）
+PASS 4b-5 ★ 工具结果摘除（role user 但不是玩家说的）
+PASS 4b-6 ★ 后备注入摘除（后处理指令不进摘要）
+PASS 4b-7 ★ 技能目录快照摘除
+PASS 4b-8 AI 只留 text 块（正文在，且只有这一个块）
+PASS 4b-9 ★ checkpoint 抠成 previous_summary，且不混进正文
+PASS 4b-10 反证：把"整条丢 system"改成"保留 system" ⇒ 4b-2 必须变红
+PASS 4b-11 textOf 只认 text 块（reasoning 取不到）
+PASS 4b-12 previousSummaryOf 抠不到就返回空串（⛔ 不猜）
+PASS DSH 检出定位成功且官方包可由 <检出>/apps/cli/package.json 锚点解析（只读）
+PASS 满载 import 不抛（官方包在锚点下真拿到）
+PASS 满载 degraded === null（正常挂载，未降级）
+PASS ★ 原型链：RpCompactionEngine.prototype 的父原型就是官方 BasicCompactionEngine.prototype
+PASS ★ 覆盖两个钩子：summarize + compactIfNeeded 都是自己定义的（prototype 上的 own 属性）
+PASS ★ compactIfNeeded 覆写体**调了 super**（阈值判定/保留策略仍是官方实现）
+PASS ★ 官方其余方法一个都没被遮蔽（compactIfNeeded 之外全部不是 own）
+PASS 官方其余方法经原型链可达（继承真实生效）
+PASS ★ 5c 生成物里没有类的哈希私有成员（有 ⇒ 经 cordis 服务 Proxy 调用必抛品牌错）
+PASS ★ 5c 经 Proxy 接收者调 summarize() 走到"缺摘要模型"这条正常逻辑（不是品牌错）
+PASS ★ 5c 反证：报错里不出现「Receiver must be an instance」（出现了就是私有成员又回来了）
+PASS ★ 4c-1 summarize() 真的把请求发到了 llm.stream（截获到 options）
+PASS ★ 4c-2 发出去的 messages 里没有 role: system（系统提示词那条被摘掉了）
+PASS ★ 4c-3 系统提示词正文一个字都没发出去
+PASS ★ 4c-4 思维链与工具参数都没发出去
+PASS ★ 4c-5 玩家发言 + AI 最终正文在（该留的留着）
+PASS ★ 4c-6 标签就位：text_to_summarize 开闭 + previous_summary + 指令
+PASS ★ 4c-7 checkpoint 原文（"automatically generated checkpoint"）没混进正文
+PASS ★ 4c-8 不传 tools、不传 system 字段（KV cache 前缀换"只看对话"）
+PASS 宿主同款 CJS 转译（esbuild format=cjs）成功 —— 顶层 await 类 bug 的回归门
+PASS ★ 反证：全部锚点打断后 import 仍不抛（否则用户 preset 挂不上）
+PASS ★ 反证：degraded 如实报告两个包都拿不到，且每条锚点原因在案
+PASS ★ 反证：降级导出仍是能被安全实例化的类（构造不抛）
+PASS ★ 反证：降级不吞纯函数导出（resolveInstruction 降级下照常可用）
+PASS ★ 8) 真机挂载副本里没有类的哈希私有成员（它就是 /compact 实际跑的那份）
+PASS ★ 8a) 真机挂载副本与仓库生成物**逐字节一致**（铺盘漏了/手改了会红）
+  ⚠️ SKIP 8a-逐字节：真机副本**落后一代**（缺：2026-09-22 三档回退梯子（R1/R2/R3） [logCompactionFailure(this.ctx, error, 'summarize-r2')]）
+     ⇒ 要把新生成物铺到部署目录（否则面板改阈值/三档梯子只在仓库里）：
+        node "D:\apps\dsh-tarven配置区\产物\memory-tools\_materialize-preset-modules.mjs" --apply
+        （再重启宿主 —— 预设目录里的 .js 是宿主进程 import 进去的）
+     铺盘之后本条会自动恢复成**逐字节**判定。
+PASS ★ 8b) 真机副本 import 不抛（官方包在锚点下真拿到）
+PASS ★ 8b) 真机副本经 Proxy 调 summarize() 走到"缺摘要模型"（不是品牌错）
+PASS ★ 9a 预设里每个 `./x.js` 引用的文件都真实存在（缺一个 = 那一组挂不上）
+PASS ★ 9b 压缩后端挂的是相对模块 ./mt-compaction-rp.js（防回流到绝对路径）
+PASS ★ 9c 预设里已无**挂载**指向独立插件 dsh-compaction-rp 的绝对路径（注释里留痕不算）
+PASS 临时目录已删除
+
+ALL PASS
+  ✔ _selftest-mt-compaction.mjs
+== _selftest-mt-read.mjs · RP 只读 read 工具自检 ==
+
+--- ① 参数解析（非法一律抛，照官方）---
+  PASS ①a file_path 缺失 / 空 / 非字符串 ⇒ 抛
+  PASS ①b offset / limit 非正整数 ⇒ 抛
+  PASS ①c ★ 反证：limit 超过上限 ⇒ 抛（不是静默夹到上限）
+  PASS ①d 省略 offset/limit ⇒ 默认 1 / maxLimit
+  PASS ①e ★ 反证：file_path 里的空白不被告成"可用" —— 原样返回（解析不替调用方改词）
+
+--- ② 行窗口口径 ---
+  PASS ②a 基础：行号从 1 起，totalLines 正确
+  PASS ②b ★ 反证：末尾换行**不产生额外空行**（官方口径）
+  PASS ②c ★ 反证：空文件 totalLines=0；offset=1 时**不抛**（官方 finish 的例外：空文件读一次不该变成报错）
+  PASS ②d ★ 反证：offset 超过总行数 ⇒ 抛（不是"返回空"）
+  PASS ②e offset 生效：从第 2 行起取
+  PASS ②f ★ 反证：单行超长 ⇒ 截断**并留下可见标注**（照官方 truncateLine，不是无声切片）
+  PASS ②g ★ 反证：字节上限触发 ⇒ truncatedByBytes=true（且至少给一行，不空手而归）
+  PASS ②h CRLF 归一：\r\n 不把 \r 留在行尾
+
+--- ③ 输出信封（逐字对齐官方 formatReadOutput）---
+  PASS ③a 读完 ⇒ End of file 页脚 + 信封形状
+  PASS ③b 被 limit 截断 ⇒ Showing lines A-B of N + 续读提示
+  PASS ③c 被字节截断 ⇒ Output capped 页脚（优先于 Showing）
+  PASS ③d 空窗口 ⇒ 信封里只有页脚（不产生空行堆）
+
+--- ④ ★★ 只读底线：只注册一个 read，绝不注册写工具 ---
+  PASS ④a 注册了且**只注册了一个**工具
+  PASS ④b ★★ 反证：注册面里**不许**出现 write / edit / write_image 之类
+  PASS ④c 段：注册了 tool:read @1100（与官方同名同位）
+  PASS ④d 有 output.schema + output.render（DSH register 的硬要求）+ execute
+
+--- ⑤ ★★ 静态锚点：走 fs 服务，不许 node:fs / 不许 @deepseek-ai 依赖 ---
+  PASS ⑤a ★★ 反证：代码体里不出现 node:fs（绕过沙箱的唯一入口）
+  PASS ⑤b ★★ 反证：不 import 任何 @deepseek-ai/*（消除解析风险）
+  PASS ⑤c ★ 反证（负控）：把 stripComments 拿掉后，上面两条会变红 —— 证明断言不是空转
+
+--- ⑥ 降级：服务缺失 / 注册抛错 ⇒ 降级不抛 ---
+  PASS ⑥a tools 缺失 ⇒ 不注册、不抛、有 warn
+  PASS ⑥b ★ 反证：fs 缺失 ⇒ **不注册**（⛔ 绝不用 node:fs 兜底），且 warn 里点明理由
+  PASS ⑥c ★ 反证：register 抛错 ⇒ 降级返回，⛔ 不往上抛（抛 = 预设挂不上）
+  PASS ⑥d systemPrompt 缺失 ⇒ 工具照常注册，只是少一段提示
+
+--- ⑦ 描述 / 段文本可配（"描述逐个可配"的地基）---
+  PASS ⑦a 不传 config ⇒ 用默认（默认非空）
+  PASS ⑦b config 覆盖描述 / 段文本 / limit；空白串视为没配
+  PASS ⑦c ★ 反证：非法 limit（0/负/NaN）⇒ 回落默认，不变成 0 行
+  PASS ⑦d 描述真的进了注册面与段
+  PASS ⑧ 端到端：execute 走 fs.resolve + fs.readText，返回带行号窗口
+  PASS ⑧b ★ 反证：越界读 ⇒ 抛（由 DSH 变成模型可见的工具错误，不是静默空结果）
+  PASS ⑧c ★★ 回归（2026-09-19 真机踩过）：相对路径要带会话 cwd —— exec.agent.session.header.cwd 必须传进 fs.resolve
+  PASS ⑧d ★ 反证（负控）：假件必须是异步的 —— 若 execute 漏了 await，`D:/fake/x.md` 就取不到（证明这条台子抓得住那个 bug）
+  PASS ⑧e exec 不带 agent（非 agent 调用）⇒ 不传 cwd、也不抛
+
+== 汇总：37 通过 / 0 失败 ==
+  ✔ _selftest-mt-read.mjs
+PASS 隔离：临时根在仓库内、不在家目录
+PASS 数据面：列卡 ok、三张文件都列出（含坏卡）+ 导航提示齐（6732/8432/1022/characterBook）
+PASS 数据面：坏卡不拖垮列表（not-json.json 提示为空但 id 在）
+PASS 数据面：读卡原样全字段（data/extensions/compatibility/raw + sha256/cardHash）
+PASS 数据面：目录不存在 ⇒ ok:true + 空列表 + 可读说明（不是错误）
+PASS QUESTIONS 正向：合规样本 ⇒ ok:true 零违例
+PASS QUESTIONS 解析：两题、四要素全、advice/why 拆对
+PASS 反向：坏 magic ⇒ BAD_MAGIC（错误级）
+PASS 反向：一题都没有 ⇒ NO_QUESTIONS
+PASS 反向：缺「我的建议」⇒ QUESTION_INCOMPLETE
+PASS 反向：缺「不选也行」⇒ NO_FALLBACK（且四要素也报）
+PASS 反向：选项只剩 1 个 ⇒ TOO_FEW_OPTIONS（警告）+ QUESTION_INCOMPLETE
+PASS 反向：术语禁令「token」⇒ TECH_JARGON（错误级）
+PASS 反向：术语禁令「preset」⇒ TECH_JARGON（错误级）
+PASS 反向：术语禁令「system」⇒ TECH_JARGON（错误级）
+PASS 反向：术语禁令「压缩」⇒ TECH_JARGON（错误级）
+PASS 反向：术语禁令「注入」⇒ TECH_JARGON（错误级）
+PASS 反向：术语禁令「字段」⇒ TECH_JARGON（错误级）
+PASS PACK 正向：合规样本 ⇒ ok:true 零违例
+PASS PACK 正向：不传 expectCardHash 也 ok（哈希校验缺期望值时跳过）
+PASS 反向：坏 magic ⇒ BAD_MAGIC
+PASS 反向：缺 CONFLICTS 段 ⇒ MISSING_SECTION（点名）
+PASS 反向：缺 decisions 行 ⇒ META_INCOMPLETE
+PASS 反向：SETTINGS 只剩空行 ⇒ EMPTY_SETTINGS
+PASS 反向：TONE 清空 ⇒ BAD_TONE
+PASS ⑤ CARD_HASH_MISMATCH 拦得住「旧 pack 套新卡」（错误级 ok:false）
+PASS 反向：SETTINGS 定义 OOC: 路由 ⇒ DUPLICATES_CONTRACT（警告，不阻断）
+PASS 反向：SETTINGS 超 8000 字 ⇒ SETTINGS_TOO_LONG（警告，不阻断）
+PASS 反向：CONFLICTS 非 NONE ⇒ HAS_CONFLICTS（警告；调用方必须据此不写盘）
+PASS 反向：thinkMode 写枚举外的值 ⇒ BAD_THINK_MODE
+PASS 反向：identity 为空 ⇒ BAD_IDENTITY
+PASS 反向：identity 超 400 字 ⇒ BAD_IDENTITY
+PASS 反向：identity 缺失 ⇒ BAD_IDENTITY
+PASS 正向对照补：thinkMode 缺省不算违例（默认 analysis）
+PASS parsePack：SETTINGS 段内逐字保留（前后空行与缩进都在）
+PASS parsePack：META 未知键原样保留 + 未知行不丢
+PASS parsePack：META 重名键按首次出现取值
+PASS parsePack：缺段 ⇒ null（POST 段去掉后 post === null）
+PASS parseQuestions：说明段逐字保留（含空行）
+PASS parseQuestions：intro 逐字（空行 + 缩进原样）
+PASS parseQuestions：缺说明段 ⇒ intro === null
+PASS parseQuestions：选项 label/effect 结构对（说后果不说原理那半进 effect）
+PASS 穿越防御：../evil.json ⇒ BAD_CARD_ID
+PASS 穿越防御：sub/x.json ⇒ BAD_CARD_ID
+PASS 穿越防御：不存在的名字 ⇒ CARD_NOT_FOUND
+PASS 穿越防御：含冒号 ⇒ BAD_CARD_ID
+PASS 穿越防御：反斜杠 ⇒ BAD_CARD_ID
+PASS 穿越防御：缺 id ⇒ BAD_CARD_ID
+PASS HTTP：apply 后恰好 2 条 prefix 路由（既有契约未变）
+PASS HTTP GET /agent/cards：200 + ok:true + 三条文件 + 导航提示
+PASS HTTP GET /agent/card：200 + 原样全字段 + sha256
+PASS HTTP 穿越：200 + ok:false BAD_CARD_ID（绝不 500）
+PASS HTTP 穿越：sub/x.json ⇒ 200 + ok:false
+PASS HTTP 不存在：200 + ok:false CARD_NOT_FOUND
+PASS HTTP 缺 id：200 + ok:false BAD_REQUEST
+PASS HTTP 方法错：POST /agent/cards ⇒ 405（ENDPOINTS 口径）
+PASS HTTP 保留的 /agent/cards 不受影响：200 + ok 是布尔（可读结果而非 500）
+PASS 临时根已删除
+
+ALL PASS
+  ✔ _selftest-pack-contract.mjs
+PASS 7: P1 wrapPhiText：包一层标记（⛔ 裸发会被模型当成玩家发言）；空文本 ⇒ 空串 | P2 phiUserMessage：形状与宿主 createUserMessage 逐字一致（id/role/content/source） | P3 shouldInjectPhi 真值表：开着 + 有正文 + 第 1 步 ⇒ 注；其余一律不注（各报各的原因） | P4 registerPhiMessage：prepend 挂 pre-step、先走 next() 再往 decision.messages 末尾追加 | P5 ★ 反证：关掉 / 拿不到正文 / 不是第 1 步 ⇒ **一条都不加**（decision 原样返回） | P6 ★ 反证：畸形/没有 agent/decision 不是 enter ⇒ 原样透传，⛔ 绝不抛 | P7 接线失败必降级：ctx 没有 on() ⇒ installed:false + 如实给原因（⛔ 不抛）
+ALL PASS
+  ✔ _selftest-phi-message.mjs
+PASS ① 装配里至少引用了 5 个 ./x.js（形状没漂）
+PASS ① ★ 每个 ./ 引用都能在 preset-modules/ 里找到（缺一个 ⇒ 铺出来的预设是残的）
+PASS ① ★ 生成物 mt-compaction-rp.js 被装配引用，且**不在** preset-modules/（免得与生成器漂移）
+PASS ① 装配/预设元数据/README 都在 preset/
+PASS ② ★ 装配里零机器路径（`C:/Users/…`、盘符路径一律不许有 —— 发布版要能换机器）
+PASS ② 反证：装配里**故意**放一个盘符路径就该被判出来
+PASS ② 反证（假阳性）：https URL 不该被判成盘符路径
+PASS ③ dry-run 退出码 0
+PASS ③ ★ dry-run 零写入（调用前后快照逐字节相比）
+PASS ③ dry-run 会列出"要写哪些文件"（含目标目录）
+PASS ④ --apply 退出码 0
+PASS ④ ★ 铺出来的文件清单 = 装配引用 + 两个元数据文件（一个不多一个不少）
+PASS ④ ★ 每个铺出来的文件都与仓库源逐字节一致
+PASS ④ ★ mt-compaction-rp.js 与生成器输出一致（现场比）
+PASS ⑤ ★ 内容不同 ⇒ 先备份成 .bak-<时间戳>（⛔ 不静默覆盖）
+PASS ⑤ ★ 备份里是被覆盖掉的**旧内容**（不是新内容）
+PASS ⑤ 覆盖后主文件回到仓库那份
+PASS ⑤ 再跑一次：内容已一致 ⇒ 不再新增备份
+PASS ⑥ ★ 反证：装配引用了不存在的模块 ⇒ installer 非 0 退出（⛔ 不铺半份预设）
+PASS 临时目录已删除
+
+── 20 通过 / 0 失败 ──
+  ✔ _selftest-preset-install.mjs
+
+== ① 包内副本 vs 源复制件（sha256 + 逐字节）+ files 字段 ==
+  PASS 1a package.json files 含 preset-modules/
+  PASS 1b 包内副本两个都读得到
+  PASS 1c-story-anchor.js sha256 相等且逐字节相等
+  PASS 1c-rp-tool-scope.js sha256 相等且逐字节相等
+
+== ② 首次写入逐字相等 ==
+  PASS 2a ok:true 且两个都是 create
+  PASS 2b-story-anchor.js 盘上逐字等于包内副本
+  PASS 2b-rp-tool-scope.js 盘上逐字等于包内副本
+
+== ③ 幂等：第二次全跳过、不多出备份、mtime 不变 ==
+  PASS 3a 第二次两个都是 skip
+  PASS 3b 不多出备份
+  PASS 3c mtime 一个都没动
+
+== ④ 内容不同 ⇒ 先备份再覆盖，备份与旧内容逐字相等 ==
+  PASS 4a ok:true 且两个都是 overwrite
+  PASS 4b-story-anchor.js 恰好一份备份且与旧内容逐字相等
+  PASS 4c-story-anchor.js 覆盖后与包内副本逐字相等
+  PASS 4b-rp-tool-scope.js 恰好一份备份且与旧内容逐字相等
+  PASS 4c-rp-tool-scope.js 覆盖后与包内副本逐字相等
+
+== ⑤ 冲突停下：回读不符 ⇒ VERIFY_FAILED + 回滚 + 后续文件没被碰 ==
+  PASS 5a ok:false 且 code=VERIFY_FAILED
+  PASS 5b 冲突文件已回滚（与旧内容逐字相等）
+  PASS 5c 后续文件（rp-tool-scope.js）没被写、保持旧内容
+  PASS 5d 原来没有的文件：冲突后零残留（删掉）
+
+== ⑥ 全部 skip ⇒ 组成文件一个字节不动（不 touch）+ 反证C：永远 touch ⇒ 变红 ==
+  PASS 6a 全部 skip ⇒ touched:false
+  PASS 6b 组成文件 mtime 不变
+  PASS 6c 组成文件 sha256 不变
+  PASS 6d dryRun 报 wouldTouch:false（零写入）
+  PASS 6e 反证C锚点存在（源码没漂移）
+  PASS 6f 反证C下 ⑥ 变红（mtime 变了 / touched≠false）
+
+== ⑦ 有写入 ⇒ touch：sha256 不变、mtime 变 + 反证D：重新序列化写回 ⇒ 变红 ==
+  PASS 7a touched:true
+  PASS 7b 组成文件 sha256 不变（逐字节原样写回）
+  PASS 7c 组成文件 mtime 变了
+  PASS 7d generationNote 原话在
+  PASS 7e 反证D锚点存在（源码没漂移）
+  PASS 7f 反证D下 ⑦ 变红（touched≠true / sha 被改）
+
+== ⑧ 组成文件不存在 ⇒ 不崩、touched:false + 一条 warning、绝不顺手创建 ==
+  PASS 8a ok:true 且 touched:false
+  PASS 8b 恰好一条 warning（组成文件缺失）
+  PASS 8c 没把组成文件创建出来
+  样例（⑧ 返回值，路径以 <tmp> 代替）：
+  {"ok":true,"dryRun":false,"presetDir":"<tmp>/no-comp…","modulesDir":"<包根>/preset-modules","results":["story-anchor.js:create","rp-tool-scope.js:create"],"touched":false,"generationNote":"换代码只在**新会话**生效；已在跑的会话留在旧代","warnings":["组成文件不存在（C:\\Users\\w\\AppData\\Local\\Temp\\dma-pm-no-comp-0OAnuU\\agent.cordis.yml）—— 本次写入未触发换代（不 touch、不创建）"],"errors":[]}
+
+== ⑨ 反证A：「相同就跳过」改成永远写 ⇒ ③ 必须变红 ==
+  PASS 9a 变体A锚点存在（源码没漂移）
+  PASS 9b 变体A下 ③ 至少一条断言变红
+
+== ⑩ 反证B：删掉备份那行 ⇒ ④ 必须变红 ==
+  PASS 10a 变体B锚点存在（源码没漂移）
+  PASS 10b 变体B下 ④「备份与旧内容逐字相等」变红（备份根本没产生）
+
+—— 汇总 ——
+PASS 38 / FAIL 0
+反证C红证：全部 skip 时变体仍 touch —— mtime 变了（不该变）；touched=true（真身这两项必须是「没变/false」）
+反证D红证：重新序列化写回 —— ok=false code=TOUCH_VERIFY_FAILED touched=false（真身场景该是 ok=true/touched=true；sha 守卫当场把它拦下）
+反证A红证：action=story-anchor.js:skip,rp-tool-scope.js:skip；备份 0→2；mtime 变了
+反证B红证：.dma-backup 条目 = 0（期望 ≥2）；覆盖照常发生（ok=true）但旧内容已无备份
+自检台：全绿（含四条反证的红）
+  ✔ _selftest-preset-modules.mjs
+PASS P0 找得到人设正文（`prefix: |-` → 下一个挂载行）
+PASS P1 ★ 只演你自己：不替玩家操控其角色、不替玩家做决定（也不替他写台词、定新动作）
+PASS P1 ★ 只演你自己：不替玩家操控其角色、不替玩家做决定（也不替他写台词、定新动作） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P2 ★ 轮到玩家的角色 ⇒ 停下等他（宁可留白）
+PASS P2 ★ 轮到玩家的角色 ⇒ 停下等他（宁可留白） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P3 ★ 同场演 NPC 时规矩一样（仍不替玩家操控其角色）
+PASS P3 ★ 同场演 NPC 时规矩一样（仍不替玩家操控其角色） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P4 ★ 设定以"已确立的那份"为准（可补全留白，不许篡改 / 另起一套）
+PASS P4 ★ 设定以"已确立的那份"为准（可补全留白，不许篡改 / 另起一套） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P5 ★ 重大转折要先铺垫 + 不得代替用户决定其角色的行为
+PASS P5 ★ 重大转折要先铺垫 + 不得代替用户决定其角色的行为 ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P6 ★ 笔记那条：不许把自己想象的玩家设定写进去
+PASS P6 ★ 笔记那条：不许把自己想象的玩家设定写进去 ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P7 ★ P1/P2/P3 落在 §0 开头与 §3（演出规范）里 —— 与既有的"行为边界"同处一块
+PASS P7 ★ 反证：把 P1 的锚点从 §3 里剪掉 ⇒ 同一判据必红
+PASS P8 ★ P6（笔记那条）落在 §5（剧情笔记）—— 它管的是**笔记**，不是演出
+PASS P9 ★ 读也只在本局周目目录里（§1★1 —— 读的那一步）
+PASS P9 ★ 读也只在本局周目目录里（§1★1 —— 读的那一步） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P9 ★ 读也只在本局周目目录里（§4 路径纪律 ①②③）
+PASS P9 ★ 读也只在本局周目目录里（§4 路径纪律 ①②③） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P9 ★ 读也只在本局周目目录里（§5 开头 —— 一个周目一份）
+PASS P9 ★ 读也只在本局周目目录里（§5 开头 —— 一个周目一份） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P10 ★ 三处分别在 §1 / §4 / §5 里（⛔ 不许只写在一处 —— 一处丢了另两处还能兜住）
+PASS P10 ★ 反证：把 §1 那句剪掉 ⇒ 同一判据必红
+PASS P11 ★ 铁律（新口径）：作者的 ⇒ 一个字不动；你自己的 ⇒ 该改就改、该删就删
+PASS P11 ★ 铁律（新口径）：作者的 ⇒ 一个字不动；你自己的 ⇒ 该改就改、该删就删 ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P11 ★★ 本单要治的那条：每轮都更新的那几段 ⇒ **写下一轮时，把上一轮的删掉**（⛔ 不许越堆越长）
+PASS P11 ★★ 本单要治的那条：每轮都更新的那几段 ⇒ **写下一轮时，把上一轮的删掉**（⛔ 不许越堆越长） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P11 ★ 同一条在 `index.md` 那一段也点了名（你自己那几段**每轮替换**；作者写在里面的不许动）
+PASS P11 ★ 同一条在 `index.md` 那一段也点了名（你自己那几段**每轮替换**；作者写在里面的不许动） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P11 ★ 作者那部分"一个字不动"两处都写着（判作者那档 + 用户手改那档）
+PASS P11 ★ 作者那部分"一个字不动"两处都写着（判作者那档 + 用户手改那档） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P11 ★ 新建那一档照旧（新建自己的文件可以用 overwrite；已存在的文件整份覆盖仍不许）
+PASS P11 ★ 新建那一档照旧（新建自己的文件可以用 overwrite；已存在的文件整份覆盖仍不许） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P11 ★ 手段：已存在的文件只用 append／replace（**整段不要了就 replace 成空**；find 必须逐字）
+PASS P11 ★ 手段：已存在的文件只用 append／replace（**整段不要了就 replace 成空**；find 必须逐字） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P11 ★ 旧口径退役：人设里**不再**出现"你只有追加权 / 没有覆盖权"那两句（⛔ 别静默回滚）
+PASS P12 ★ 开场白的**第一行就是本局开场的准确时间**（时间锚 = 卡的开场白那一段）
+PASS P12 ★ 开场白的**第一行就是本局开场的准确时间**（时间锚 = 卡的开场白那一段） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P12 ★ 锚点说死 + 往后顺推 + index/state 必须同源
+PASS P12 ★ 锚点说死 + 往后顺推 + index/state 必须同源 ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P12 ★★ 明令禁止把"格式示例"当本局日期（事故原话写进条款里）
+PASS P12 ★★ 明令禁止把"格式示例"当本局日期（事故原话写进条款里） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P12 ★ 卡里没有开场白时的退路（问玩家 / 按 state.md），⛔ 不许凭空编
+PASS P12 ★ 卡里没有开场白时的退路（问玩家 / 按 state.md），⛔ 不许凭空编 ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P12 ★★ 开场白**不重演**：⛔ 不逐字复述、不润色重发（你的第一条正文从它之后接）
+PASS P12 ★★ 开场白**不重演**：⛔ 不逐字复述、不润色重发（你的第一条正文从它之后接） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P13 ★ 工序照做（§1 四步：★1 读 → ★2 定稿正文 → ★3 落笔记 → ★4 发正文）
+PASS P13 ★ 工序照做（§1 四步：★1 读 → ★2 定稿正文 → ★3 落笔记 → ★4 发正文） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P13 ★★ ①工具结果只作核对、⛔ 不回头改正文；②一轮只做一遍就结束
+PASS P13 ★★ ①工具结果只作核对、⛔ 不回头改正文；②一轮只做一遍就结束 ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P13 ★ ③world.md 只写舞台、⛔ 不写主持人剧透
+PASS P13 ★ ③world.md 只写舞台、⛔ 不写主持人剧透 ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P13 ★ ④ask_user_question 按卡里的规则判、拿不准就不用
+PASS P13 ★ ④ask_user_question 按卡里的规则判、拿不准就不用 ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P14 ★★ 正向要求：**每一轮都要在正文里回复**（正文 = 最后那条不带工具调用的消息）
+PASS P14 ★★ 正向要求：**每一轮都要在正文里回复**（正文 = 最后那条不带工具调用的消息） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P14 ★★ 顺序：先跑工具 ⇒ 再发这一段正文（带工具调用的消息算工具步，玩家看不到）
+PASS P14 ★★ 顺序：先跑工具 ⇒ 再发这一段正文（带工具调用的消息算工具步，玩家看不到） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P15★ ★ 格式与尺度：本引擎**不额外设**格式规范或内容边界（格式归角色卡，⛔ 预设不自创硬规则）
+PASS P15★ ★ 格式与尺度：本引擎**不额外设**格式规范或内容边界（格式归角色卡，⛔ 预设不自创硬规则） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P16 ★ 路径从 `<memoryHome>` 段**逐字复制**，⛔ 不许凭记忆重打
+PASS P16 ★ 路径从 `<memoryHome>` 段**逐字复制**，⛔ 不许凭记忆重打 ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P16 ★ 读不到时的正确动作：先 glob 拿确切路径再 read（⛔ 别反复重打）
+PASS P16 ★ 读不到时的正确动作：先 glob 拿确切路径再 read（⛔ 别反复重打） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P17 ★ 自记标记：每一段**段首独占一行**写 `〔AI 自记〕`（紧贴它那一段的标题上面；作者预置的不带）
+PASS P17 ★ 自记标记：每一段**段首独占一行**写 `〔AI 自记〕`（紧贴它那一段的标题上面；作者预置的不带） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P17 ★★ 删法照标记走（`find` 给上一轮那一行标记 ＋ 紧跟的标题行；`text` 留空＝**整段删**）
+PASS P17 ★★ 删法照标记走（`find` 给上一轮那一行标记 ＋ 紧跟的标题行；`text` 留空＝**整段删**） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P17 ★★ 骨架：`index.md` 只有两段、照抄（「最近进展」＋「导演笔记」；⛔ 不自己起标题、⛔ 不许再开新段）
+PASS P17 ★★ 骨架：`index.md` 只有两段、照抄（「最近进展」＋「导演笔记」；⛔ 不自己起标题、⛔ 不许再开新段） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P17 ★ 骨架在「新周目」那一档也点了名（存在则照骨架补两段）
+PASS P17 ★ 骨架在「新周目」那一档也点了名（存在则照骨架补两段） ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P17 ★★ 标记字面两处一致：persona 里写的就是 `lib/memory-write.js` 的 `NOTE_SELF_MARK`（逐字）
+PASS P17 ★ 反证：把 persona 里那两处字面全换成别的字（`〔AI 记〕`）⇒ 上面那条必红
+PASS P18 ★ 文件级"该优化了"：`notes.md` 过约 6000 字／3000 token ⇒ 最早场记压成一行**留在原位**、伏笔移进 `world.md` 的未解伏笔
+PASS P18 ★ 文件级"该优化了"：`notes.md` 过约 6000 字／3000 token ⇒ 最早场记压成一行**留在原位**、伏笔移进 `world.md` 的未解伏笔 ★ 反证：剪掉任一锚点 ⇒ 判据必红
+PASS P18 ★ 位置：它在 §5 的「更新纪律」那一块里（`**更新纪律**` → `**新周目**` 之间），且 §5 里只此一处
+
+── 78 通过 / 0 失败 ──
+  ✔ _selftest-preset-persona.mjs
+== _selftest-prompt-map.mjs · dsh-memory-archive 提示词装配地图自检 ==
+[PASS] 前置：factory 真执行；exports.__promptMap 存在且五个成员是函数；__internals 键集合未被本单改动（仍 15 个）
+[PASS] ★1+4 组件能渲染：喂假数据不抛；[system]/[tools]/[messages] 三个框标题都在（2026-09-19 起 [上下文] 不再出盒）
+       [实数] 三色分类：红 5 · 黄 3 · 蓝 3 · 灰(含虚线) 2
+[PASS] ★2 三色分类正确：红/黄/蓝各≥1，已知段逐一对色无错分（错分即红）
+[PASS] ★★3 可变性标注：两轮中文本变了的段（anima）⇒ 每轮·实测；没变且无已知类型的段（compacted）⇒ 静态·实测；两轮拿不到 ⇒ 未知
+[PASS] ★5 行上**不再有悬停说明**（2026-09-19 用户口径：浮窗不维护了）；关键信息在**可见文字**里
+[PASS] ★6 缺 anima:memory ⇒ 该块仍以灰虚线「未检出」出现在图上，不是消失
+[PASS] ★7 反证 A：part=tools 喂成空数组 ⇒ [tools] 框仍在（内容「未检出」），不是整个框消失
+[PASS] ★8 反证 B：把某块颜色故意断错 ⇒ 第 2 条的断言真的会抛（不是橡皮图章）
+[PASS] 9 确定性：同一份假数据渲染两次，元素结构逐字一致
+[PASS] ★10 A8 改版：messages 框顶「对话历史 · N 条」定位入口（条数=真实切出的条数）；特殊行只留真实检出的 checkpoint / role=tool，普通 user/assistant 行不再出现
+[PASS] ★11 A8 反证：checkpoint / role=tool 只有真实检出才出现行 —— MSG_FULL（含 compacted 无 tool）⇒ 只出 checkpoint 行、无 tool 行；messages=null ⇒ 如实「取不到」一行；空串 ⇒ 0 条且无行
+[PASS] ★12 三级导航：★DOM 无轮次胶囊（无 dma-turn、无 #N 可点按钮）；状态行「第 2 / 3 楼」只是显示；依据来源角标（captured）；下钻回调收到 (boxId, block)，虚线块不可点
+[PASS] ★12b 反证：把旧轮次条数据（requests）喂给新组件也渲染不出胶囊 —— 证明删除是实现级的，不是数据缺省
+[PASS] ★13 诚实口径（A6 横幅）：source=inferred ⇒ 横幅「无捕获记录 · 以下为文本推断」+ 原因；fallback ⇒ 带「捕获端点不可用」；captured ⇒ 横幅「本楼结构来自组装捕获」且不许出现推断横幅
+[PASS] ★14 C4 数据层：真段名进 [system] 框（static=红 / per-turn=黄 / unknown=灰实线）；contexts 进独立 [上下文] 框（20260914 返工：⛔ 不再混进 system）；tools 蓝；mutabilityBasis 进提示；source/capturedAt 透传
+[PASS] ★15 反证：C4 source=inferred ⇒ 数据层 source 仍是 inferred、块 mut=unknown 灰、inferred.message 透传（不许把推断说成捕获）
+[PASS] ★16 L2 消息定位：只列玩家发的那条（source.kind==="user"）；注入的 user 行默认不列、可一键显示
+[PASS] ★16b L2 拿不到 source.kind（老宿主/形状变了）⇒ 一条都不过滤，并如实说明
+[PASS] 护栏 A：Agent 编辑器面板真渲染（空闲态）不抛，且能看到「提示词装配地图」一列
+[PASS] 护栏 B：PromptMap 的取数 effect 依赖 [sessionId, turn]（选中会话/轮次变了会重取），且取 C4 段结构（真相源）与 part 各段
+       [实数] 比例条：最大 1200 字→60%，次大 800 字→40%，宽度比 1.500 vs 字数比 1.500
+[PASS] ★17 A1 比例条：每个有字数的检出块都有 data-pm=bar（宽度%数据在 data-pm-bar-w）+ 右侧百分比；两块 bar 的宽度比 ≈ 字数比（0.5% 容差）
+[PASS] ★18 A2 顺序脊：每行带 data-pm=spine（order 数值 + 头/中/尾）；-1000⇒头、10⇒中、9900⇒尾；无数值 order 如实「—」
+[PASS] ★19 A3 复合段：`<插件id>:profile` 形状 ⇒ 块 composite=true + 行上「复合段」徽标（M12 起不再写「未展开」）；普通段没有
+[PASS] ★20 A4 徽标带依据：C4 definition ⇒ 「静态·注册定义 / 每轮·注册定义」；header-equal ⇒ 「header相等」；文本推断 known/measured ⇒ 「已知类型 / 实测」
+[PASS] ★21 A5 空段：chars=0 ⇒ 块 empty=true、行 data-pm-empty=1 + 「空」标、比例条宽 0；和「未检出」虚线明确区分
+[PASS] ★22 A6 补充：buildMapFromSections 把 c4.inferred.reason 原样透传（横幅显示原因用），不许改写/丢失
+[PASS] ★23 M11：占比**并进小计那一行**（跟在各自字数后）；2026-09-19 起小计行**不再列上下文**（[上下文] 盒已不显示）
+[PASS] ★24 A8 接线：传 onOpenLocator ⇒ 定位行可点且回调触发；不传 ⇒ 不可点（data-pm-loc-open=0）
+[PASS] ★25 B 取值链：text 非空⇒「来源：记忆库路径切片 [off, len]」；no-offset⇒「该段内容不可用（未记录位置）」；slice-mismatch⇒「内容不可用（校验未通过）」；no-capture-record⇒醒目「文本推断 · 边界可能不准」；网络失败⇒「内容取不到：<原因>」—— ⛔ 不许空白
+[PASS] ★25b 取值链新增两条来路：① 沿用上一份底本（carried）要写明沿自第几楼；② 定稿失败要逐段点名"哪一段、为什么"，且只认已知原因码
+[PASS] ★25c [messages] 框：有逐条数据 ⇒ 一条消息一行（按楼 + 角色 + 思维链单列报字数 + 正文词头）；⛔ 没有逐条数据才退回计数行
+[PASS] ★25d 静态：/api/part?part=messages 的逐条数据（turn/blocks）必须单独存；⛔ 不许把它塞进 clipInfo
+[PASS] ★26 B 抽屉体：段名/order/字数/徽标（只留 [每轮]，依据进 title）/注释齐备；表外段名注释位「未收录（注释表未收录）」；正文来自 state.text；复合段页脚含「复合段内部需 Tavern 接口」；取不到时正文区不出现任何编造内容
+[PASS] ★27 B 端点接线（20260914 返工单改版）：正文端点由 HOST_API_BASE 推出 = /dsh-memory-archive/api/sections/text；⛔ 全文禁现错串 /dsh-memory-archive/sections/text；前缀字面量只许 HOST_API_BASE 定义一处 —— 否则判「正文端点路径与宿主注册前缀不一致」
+[PASS] ★28 夹具反证源：/sections/text 夹具支持 failcase=no-offset / mismatch / nocapture / netfail（字段名与 §9 冻结契约一致），复合段夹具会话在列
+[PASS] ★29 夹具反证钩子作用域：window.__pmTextFailcase 在 client.js 里的出现点全部落在 editorV2FixtureLookup 函数体（大括号配对定界）之内；apiGet 的夹具分支之前有 editorV2FixtureMode() 前置判断 —— 否则判「全局泄漏到生产路径」
+[PASS] ★30 contexts≠system：system 小计 === Σ sections.chars（1,938，⛔ 不含 contexts 的 386）；2026-09-19 起 contexts 不出盒（数据仍在 totals）
+[PASS] ★31 M7 去赘文：地图与抽屉的可见文字不再出现「依据：/·注册定义/判断依据/最权威口径/如实展示，不编」；出处仍在悬停 title 与 data-pm-mutbadge（自检台契约不动）；§3 诚实降级文案仍在
+[PASS] ★31 归属文案里零 order 数字：WHO_* 常量不得含「order/≈ + 数字」（数字只能来自捕获）
+[PASS] ★32 归属按前缀认：dma:*=本插件、pmp-dsh-tavern*=上游、harness:*=DSH 核心、认不出=null（⛔ 不猜）
+[PASS] ★32 两条"近似"如实标注：PHI 与 depth 各有 honesty，普通卡字段没有
+[PASS] ★33 实测真段名逐个有注释，且抽屉渲染出该注释（不是「未收录」）
+[PASS] ★33b 归属：rp:storyAnchor / rp:firstRound / dma:echo / state:card 归本插件；rp:policy 仍归上游
+[PASS] ★34 工具段：system 框里 tool:* 一律蓝 + isTool 标记 + tip 说清「JSON 定义在 tools 字段」；非工具段不被染蓝
+[PASS] ★35 宿主定位段：4 段（harness:source/app:web-surface/context:file-reference/ui:deliverable-file-references）在 RP 里 0 字 ⇒ 行照给 + 灰标「RP 遮蔽」+ 注释写清「官方/作用/RP 已禁用」；非空不加标；别的 0 字段不受影响
+[PASS] ★36 T1 反证（多一段）：底本比覆盖多一段 ⇒ [system] 框出「未抓到」行并报出精确字数（只减不编）
+[PASS] ★46 「未抓到」可下钻：块上带**未认领正文**（按各段位置求的补集），点开就能看；⛔ 没缺口时不给这一行
+[PASS] ★48 ★★ 对齐误差：短于 8 字的碎片**不进正文**（页脚如实交代略去了几处），长的缺口照旧给
+[PASS] ★49 ★★ 底本未验证：`systemTextVerified:false` ⇒ 行照给但**不可下钻**、如实说为什么不给；验证过的照旧给
+[PASS] ★50 ★★ 注入的后处理提示词：对话历史里**照旧给出**（⛔ 不隐藏）+ 行标红 + 注释看得见；超 300 字追加提醒
+[PASS] ★37 T1 反证（恰好相等）：底本 = Σsections + 分隔符 ⇒ 「未抓到」行不出现（⛔ 不写 0 字占位行）；底本取不到同样不出
+[PASS] ★38 T1 边界：文本推断路径不出「未抓到」（块就是从底本切的，没得比）；底本比覆盖短（截断拷贝）不出负数行；降级路径不出
+[PASS] ★39 dsh-tavern 注入的段一律按「每轮」着色（黄）+ 口径写进悬停（⛔ 非 Tavern 的 unknown 段仍是灰）
+[PASS] ★40 没有 order 的段给**真实位置**（按捕获 offset）：行上 @9604、抽屉里"第 9604 字（共 12307，约 78%）"+ 该拿的档位（78% ⇒ 尾段）
+[PASS] ★41 后处理提示词的落点：order 10203 那一行标出"本轮它就排在这一行（全文最后）"；⛔ mt:postHistory 已退役不许再出现
+[PASS] ★42 part 段逐字段注释：每条都写清"这个字段是什么"、且 12 条各不相同；后处理与开场白两条要点明落点；认不出的字段退回兜底
+[PASS] ★44 ★★ 面板镜像表 == 宿主摆位表（key / order / note 逐字相同；⛔ 手改一边就红）
+[PASS] ★43 查看器正文：默认走 Markdown 渲染（复用既有 parseMarkdown/MarkdownBody，⛔ 不写第二套）；有搜索词时默认原文；可手动切
+[PASS] ★45 段抽屉导航：右上角 上一个/下一个（data-l3=nav-prev/nav-next）＋ x/n 计数；同楼段清单来自同一条 C4 /sections（buildMapFromSections 投影，键与地图行对齐）；清单未知/到头/到尾都 disabled（⛔ 不循环）；键盘 ←/→ 打字处不抢键；切换落点接回 l3Section
+[PASS] ★47 工具定义：JSON → 人话（名字/描述/参数表，标必填与可选值）；⛔ 认不出的形状回 null（不硬翻）；复制整楼带正文
+== 汇总：60 通过 / 0 失败 ==
+  ✔ _selftest-prompt-map.mjs
+== _selftest-rel-path-jail.mjs · 相对路径裁决自检 ==
+
+--- ① 对抗性边界（拒收族 / 放行族）---
+  PASS ①a 逐条拒收/放行符合期望（35 条）
+  PASS ①b ★★ 反证：拒收结果里⛔ 不许夹带"清洗后的路径"（拒收 ≠ 清洗后放行）
+  PASS ①c 每条拒收都有**人话 reason**（非空、且带 ⛔ 之外的可读说明）
+  PASS ①d 反斜杠是**归一**不是清洗：归一后照样要过全部检查
+
+--- ② resolveUnderDir：夹在 baseDir 之内 ---
+  PASS ②a 正常：落在 baseDir 下，返回绝对路径 + 归一后的 relPath
+  PASS ②b ★ 反证：前缀陷阱 —— baseDir 是另一个目录的前缀时，绝不许把越界路径当"在之内"
+  PASS ②c ★ 反证：越界族在解析层也一律拒（不是只在校验层拒）
+  PASS ②d ★ 反证：baseDir 为空/非串 ⇒ 拒（不许拿"当前目录"兜底）
+  PASS ②e ★ 反证：非串 / 空 relPath ⇒ 拒，且不抛
+
+--- ③ 隐私 ---
+  PASS ③ 自检输出里不出现任何真实路径（全程只用合成夹具）
+
+== 汇总：10 通过 / 0 失败 ==
+  ✔ _selftest-rel-path-jail.mjs
+== 1) 配置 ==
+  PASS C1 residentFile 落在传入的 storageDir 下 —— C:\Users\w\AppData\Local\Temp\dma-resident-hZ4XE8\storage\resident.json
+  PASS C2 不传 storageDir ⇒ 回落 <DSH_HOME>/dsh-memory-archive/resident.json —— C:\Users\w\.dsh\dsh-memory-archive\resident.json
+  PASS C3 residentMax / residentRefreshMs 有默认值且可被夹 —— max=20 refresh=60000
+== 2) 读路径（GET 侧）==
+  PASS R1 空常驻集 ⇒ ok + sessions:[]
+  PASS R2 ★ 读一次**不建**常驻集文件（读路径是纯读）
+  PASS R3 读响应带 refreshMs/max/stats（面板能显示"多久刷一次"）
+== 3) 改集 ==
+  PASS S1 去重 + 丢空串 —— sess-aaaa,sess-bbbb
+  PASS S2 未预热的都在 pending 里
+  PASS S3 改集后**落了盘**且形状是 {version,ids,rows}
+  PASS S4 ★ 上限 residentMax 生效（25 进 ⇒ 只留 20） —— len=20
+  PASS S5 改小之后旧投影/待办不残留
+== 4) 预热（runtime 故意不可用）==
+[dsh-memory-archive] 常驻集已载入：1 个（投影 0 条）
+[dsh-memory-archive] 常驻预热 …ess-aaaa parseMs=6 requests=-2 读不了
+[dsh-memory-archive] 常驻预热 …ess-aaaa parseMs=1 requests=-2 读不了
+[dsh-memory-archive] 常驻预热 …ess-cccc parseMs=0 requests=-2 读不了
+  PASS W1 ★ 预热失败 ⇒ requests=-2（失败哨兵）且 readError 带原因，**不是** 0/-1 冒充 —— requests=-2
+  PASS W2 失败被计数（stats.failed>0），且**不抛**（走到这里就说明没抛） —— {"warmed":0,"skipped":0,"failed":1,"parseMsTotal":1}
+  PASS W3 失败后仍不阻塞读：再读一次依旧 ok 且返回该行
+  PASS W4 落盘里也带着这次（预热结果会持久化）
+== 5) 坏常驻集文件 ==
+[dsh-memory-archive] 常驻集文件读不了（当空集，不覆盖）：Expected property name or '}' in JSON at position 2 (line 1 column 3)
+  PASS B1 ★ 坏文件 ⇒ 当空集、**不抛**
+  PASS B2 坏文件**不被覆盖**（读路径不写盘）
+== 6) 反证（变体必须红）==
+  PASS M-S4 反证：去掉上限 ⇒ 25 个全留住（S4 会红） —— len=25
+  PASS M-B1 反证：坏文件改为抛出 ⇒ 读路径炸掉（B1 会红）
+== 7) HTTP 端点 ==
+  PASS H1 GET /api/resident ⇒ 200 + 常驻行
+  PASS H2 ★ GET 常驻**没有**触发任何解析（resolveSessions 调用数 = 0） —— resolve=0
+  PASS H3 GET 也不去扫全量列表（listSessions 调用数 = 0） —— list=0
+  PASS H4 响应带归档位信封（与 /api/sessions 同口径）
+  PASS H5 POST /api/resident ⇒ 200 且入参被转交 setResident
+  PASS H6 POST 非法 ids（字符串）⇒ 当作空集，**不抛**
+  PASS H7 既有的 /api/sessions 仍可用（全部会话那条路没被砍）
+
+—— 汇总 ——
+  PASS 26 / FAIL 0
+  ✔ _selftest-resident.mjs
+PASS ① 无配置 ⇒ retrieval 投影是全默认、keySet=false
+PASS ① 重排三件套默认全空；rerankKeySet=false、rerankKeyInherited=false
+PASS ① 默认投影没有 retrieval.key 键
+PASS ② PUT 四字段 ⇒ 200，投影回 url/model/rerankModel
+PASS ② keySet=true + keyHint 只露尾 4 位
+PASS ② 重排密钥留空 ⇒ rerankKeySet=true（有 key 可用）且 rerankKeyInherited=true（用的是向量那把）
+PASS ②★ 反证：PUT 响应全文不含假 key
+PASS ②★ 反证（验收 2）：GET /config 投影没有 retrieval.key 键，且全文不含假 key
+PASS ② key 落盘（布尔断言，不回显）
+PASS ③ url 类型错 ⇒ 400 CONFIG_INVALID
+PASS ③ url 协议错 ⇒ 400（必须 http/https）
+PASS ③ retrieval 非对象 ⇒ 400
+PASS ③ __CLEAR__ 清密钥 ⇒ keySet=false、keyHint=null，且响应不含假 key
+PASS ③ 盘上 key 已清成空串
+PASS ④ retrieval 字段类型错 ⇒ 全回落默认 + configError 点名 retrieval（不抛）
+PASS ④ 未知键（keep）不进投影（sanitize 只认已知字段；投影恰好 10 键）
+PASS ④★ 反证：投影里没有任何 key 原文键（只有 keySet/keyHint 一族）
+PASS ④ chatEnabled 投影为布尔（缺省配置 ⇒ true）
+PASS ④ retrieval 整个不是对象 ⇒ 回落默认 + issue
+PASS ⑤ 缺 url/model ⇒ 400 可读（点名「向量检索 API」卡）
+PASS ⑤ 缺密钥 ⇒ 400 可读（提示先在卡里保存密钥）
+PASS ⑥ 两个模型各一套接口 ⇒ ok=true、各报一行（向量给维度、重排给返回条数）
+PASS ⑥ 向量请求打在 <向量接口地址>/embeddings、input 是一个词
+PASS ⑥★ 重排请求打在**自己的**那个地址的 /rerank 上，形状逐字对齐 anima 的 fetchRerank
+PASS ⑥ 两个 key 都只进请求头（Bearer），响应里绝不出现
+PASS ⑥★ 重排地址已以 /rerank 结尾 ⇒ 请求路径仍是 /v1/rerank（⛔ 不拼成 /rerank/rerank）
+PASS ⑥★ 兼容：重排地址留空 ⇒ 走**向量那个地址** + /rerank，密钥沿用向量那把
+PASS ⑥ 密钥被清之后 ⇒ 400 可读（点名密钥），不再拿空 key 打端点
+PASS ⑥★ 那次 400 **一个请求都没发**（两个端点计数都没变）
+PASS ⑦ 两个端点都连不上 ⇒ 200 + ok:false + NETWORK_ERROR/TIMEOUT + 汇总里两个模型各说各的
+PASS ⑦ 各自都给了 elapsedMs（哪怕拿不到 HTTP 码）
+PASS ⑦ 失败响应里也不含假 key
+PASS ⑧ 面板卡请求 /retrieval/test；卡标题是「向量检索 API」
+PASS ⑧ 端点表有 /retrieval/test；旧卡的三处 dma-api-* 输入框 id 已不在面板源码里
+PASS ⑧ publicConfig 源码里 retrieval 投影不含 key 原文（keySet/keyHint 之外无它）
+
+★ retrieval 配置面：全过
+  ✔ _selftest-retrieval-config.mjs
+PASS ① name = rp-ask-user
+PASS ① inject 含 tools 与 userQuestions（这俩是它唯一需要的东西）
+PASS ② apply 只注册 1 个工具（多注册一个就会多占一格工具面）
+PASS ② ★ 工具名必须是 `ask_user_question`（换成别的名字 = 遮蔽不到官方那份，变成两个工具）
+PASS ③ ★ 不是官方那句英文（说明真的换了文案）
+PASS ③ ★ 口径 1「只在必须玩家拍板、答案很短时用」
+PASS ③ ★ 口径 2「对话里的一次选择」（剧情选择）
+PASS ③ ★ 口径 3「进行检定」
+PASS ③ ★ 口径 4「每次只问一件」
+PASS ③ ★ 口径 5「给可点选选项 + 推荐项」（保留界面认的（推荐）后缀）
+PASS ③ ★ 三条禁令都在（开放式问题 / 自己能定的小事 / 提问不算剧情）
+PASS ③ ★ 参数说明也是 RP 版（不是官方那句英文）
+PASS ③ ★ 反证：剪掉「每次只问一件」⇒ 口径 4 判据必红
+PASS ④ ★ 顶层是 JSON-Schema 对象（type/additionalProperties/required 数组）
+PASS ④ ★ 每个 question 的字段 == 官方（id/question/header/options/multi_select）
+PASS ④ ★ 必填语义照官方：id / question 必填，header/options/multi_select 可选
+PASS ④ ★ 每个 option 的字段 == 官方（label/description），且只有 label 必填
+PASS ④ ★ 出参键照官方：answers[].{id,selected,custom?}
+PASS ④ ★ 出参必填语义照官方：answers 必填、每项 id/selected 必填
+PASS ④ ★ output.render 照官方（JSON 文本一条）
+PASS ④ ★ 反证：把 multi_select 改名 ⇒ 同一平价判据必红
+PASS ⑦ ★★ 活代码里没有内联 `required: true/false`（裸注册必须用对象级 `required: [...]`）
+PASS ⑦ ★ 反证：往活代码里塞回一个内联 `required: true` ⇒ 同一判据必红
+PASS ⑦ ★ 四处对象级必填都在（参数顶层 / question 项 / option 项 / 出参）
+PASS ⑤ ★ `multi_select` 被翻成驼峰 `multiSelect`（服务吃驼峰）
+PASS ⑤ ★ 没给 multi_select 的那件**不要**凭空补一个键（照官方 spread 条件）
+PASS ⑤ ★ header / options 原样透传
+PASS ⑤ ★ 把 agent 与 signal 一并交给服务（照官方）
+PASS ⑤ ★ 出参形状照官方：{answers:[{id,selected[],custom?}]}
+PASS ⑤ ★ 入参畸形（questions 不是数组）⇒ 不抛、当空处理
+PASS ⑥ ★ 不 import 任何 `@deepseek-ai/*`（消除解析风险）
+PASS ⑥ 服务不可用时**不注册**（降级，⛔ 不自己造后门）
+
+── 32 通过 / 0 失败 ──
+  ✔ _selftest-rp-ask-user.mjs
+== _selftest-rp-identity.mjs · 身份段改写自检 ==
+[PASS] ① 正向：注册同名 harness:identity，order 取 HARNESS_IDENTITY（-1000），文本是用户那句原文
+[PASS] ② 可配置：config.text 覆盖默认句；config.extra 追加在后面（两段之间空一行）
+[PASS] ③ ★ 反证/护栏：文本里带 `{{名字}}` ⇒ **拒绝注册**（DSH 会判 unknown/malformed 并让整轮失败），身份句保持原样 + 告警
+[PASS] ④ 绝不抛：systemPrompt 缺席 / order 抛 / section 抛 ⇒ 都只降级 + 不抛
+[PASS] ⑤ 导出面：name / inject 合规（inject 恰好 systemPrompt），默认句与用户原文逐字一致
+
+== 汇总：5 通过 / 0 失败 ==
+  ✔ _selftest-rp-identity.mjs
+PASS T1 只有周目目录有 ⇒ base=playthrough、四行清单、index.md 在、bytes 与磁盘一致
+PASS T1b ★ 清单响应里**一个字节正文都没有**（哨兵串不在响应里）
+PASS T1c 清单响应里不含绝对路径
+PASS T2 只有工作区根有 ⇒ base=workspace-root、sharedHint=true（多周目共用的提示要出现）
+PASS T3 两处都在 ⇒ 稳定选周目目录；candidates 两项都如实 exists=true
+PASS T4 两处都没有 ⇒ HTTP 200 + ok:false + RP_MEMORY_MISSING + exists:false（灰字空态，不是报错）
+PASS T5 拿不到 play-workspace.json ⇒ RP_MEMORY_NO_PLAYTHROUGH（拿不到就说拿不到，不猜）
+PASS T6 ?file=story.md ⇒ 正文与磁盘逐字节一致（CRLF 原样）、chars/bytes 如实
+PASS T7 ★ 越界/保留名/点开头 ⇒ RP_MEMORY_BAD_FILE；合法名但不在目录里 ⇒ RP_MEMORY_FILE_MISSING；不夹带、不回显、不含绝对路径
+PASS T8 目录里只有 index.md ⇒ 清单就 1 项（不再凑四行）
+PASS T16 ★ 目录里实际有的都列（含 notes.md）；子目录与 .bin 不列、只计入 skipped
+PASS T16b 列出来的就能读（notes.md 正文取到）
+PASS T16c 排序：预设那四份在前且 index 打头，额外的排在后面
+PASS T9 超上限 ⇒ truncated=true、originalChars=磁盘真实长度、chars=交付长度，且正文里没有夹带标注
+PASS T10 ★ 只读：两次请求后那份文件的字节与 mtime 逐项未变
+PASS T10b ★ 反证（源码）：handleRpMemory 体内零写/删/建 API
+PASS T12 .roleplay-memory 是文件而不是目录 ⇒ 当作没有（RP_MEMORY_MISSING），不抛不 500
+PASS T14 POST ⇒ 405（只读出口只许 GET）
+PASS T15 接线唯一：ENDPOINTS 条目 1 处、分发行 1 处
+PASS T17a 接线唯一：ENDPOINTS 条目 1 处（POST）、分发行 1 处
+PASS T17b ★ handler 收 (req, send, log)，但只认枚举 base：⛔ 客户端可控路径进不来
+PASS T17c ★ 两处（rp-memory 与 reveal）走**同一条候选链** rpMemoryCandidates（⛔ 不许两处各写一遍）
+PASS T17e ★ reveal：只给**周目目录**按需 mkdir；共用那份退而打开工作区根（⛔ 不替社区预设建目录）
+PASS T17f ★ 反证：把"只给周目目录建"这层判断挖掉（一律 mkdir）⇒ T17e 同一句必红
+PASS T17d ★ 拉起文件管理器那段不带 shell（⛔ 路径里的字符不参与命令解析）
+== 总结：25 通过 / 0 失败 ==
+  ✔ _selftest-rp-memory.mjs
+PASS A1 同根 ⇒ 命中
+PASS A2 子目录 ⇒ 命中
+PASS A3 兄弟目录（前缀相同）⇒ **不**命中
+PASS A4 斜杠/大小写/末尾分隔符差异 ⇒ 仍命中
+PASS A5 空值 ⇒ 不命中
+PASS A6 normalizeFsPath 折叠重复分隔符
+PASS A ★ 反证：用 startsWith 代替分量比 ⇒ A3 的判据变红
+PASS B1 周目工作区 + 点名了 + 当前不是它 ⇒ select
+PASS B2 没点名 ⇒ skip/no-config
+PASS B3 Tavern 没记工作区根 ⇒ skip/no-rp-workspace
+PASS B4 cwd 认不出 ⇒ skip/no-cwd
+PASS B5 不在周目工作区（运维区）⇒ skip/not-rp-workspace
+PASS B6 已经是它 ⇒ skip/already（⛔ 不重复组装）
+PASS B ★ 反证：挖掉"在不在周目工作区"那一步 ⇒ B5 的判据变红
+PASS C1 正常 ⇒ roleplay
+PASS C2 带 BOM ⇒ 照样解析
+PASS C3 trim + 前后空格
+PASS C4 坏 JSON ⇒ null/bad-json
+PASS C5 空串 ⇒ null/empty
+PASS C6 越界 id（../../etc）⇒ null/unsafe-id
+PASS C7 绝对/相对路径式 id ⇒ 拒
+PASS C8 不是字符串 ⇒ null
+PASS C ★ 反证：剪掉越界拒绝 ⇒ C6 的判据变红
+PASS D0 Tavern 存储目录拼法
+PASS D1 读得到点名
+PASS D2 读得到工作区根
+PASS D3 文件不在 ⇒ 两个都 null（⛔ 不猜）
+PASS D4 play-workspace 坏掉 / 没有 rootPath ⇒ null
+PASS E1 周目工作区的新会话 ⇒ select(agent, roleplay) 恰一次
+PASS E2 成功时记一条 info
+PASS F1 运维区（前缀相同）⇒ **不** select
+PASS F ★ 反证：把路径判据换成 startsWith ⇒ F1 的判据变红
+PASS G1 agentPresets 不在 ⇒ 不抛 + 如实记 warn
+PASS G2 抢晚了（agent-preset/locked）⇒ 不抛 + warn 里带原因与"可手动选"
+PASS G3 两个配置文件都不在 ⇒ 静默（不 select、不抛、不 warn）
+PASS H1 同一 sessionId 触发 3 次 ⇒ 只 select 一次
+PASS I1 没 DSH_HOME / 没 ctx.plugin ⇒ installed:false 且都发了 warn
+
+── 37 通过 / 0 失败 ──
+  ✔ _selftest-rp-preset-attach.mjs
+[PASS] ① 默认四段各注册一次，text 全为空串
+[PASS] ①b order 取自 getSectionOrder（位置不漂：与全局那份同 order ⇒ 只换内容不换位置）
+[PASS] ①c 成功要留一条 info 日志（装了没装可查）
+[PASS] ② 坏上下文：没有 systemPrompt ⇒ 不抛 + warn（RP 照常可用）
+[PASS] ②b section() 抛（例如上游契约变了）⇒ **绝不抛出去** + warn
+[PASS] ②c getSectionOrder 抛 ⇒ 退回 order 0 继续遮蔽（不抛、不放弃）
+[PASS] ③ config.sections 可追加（默认项优先、同层不重复）；形状不对的条目被丢掉（不炸）
+[PASS] ④ 反证：把 text 改成非空串 ⇒ 第 ① 条判据必须红（证明它不是橡皮图章）
+
+8 PASS / 0 FAIL
+  ✔ _selftest-rp-suppress.mjs
+PASS 50: ★ 存储目录：新名目录优先，两个都在时用新名 | ★ 存储目录：只有旧名目录时回退读它（老用户不会"数据消失"） | ★ 存储目录：两个都没有 ⇒ 返回新名路径（不创建目录，也不猜） | resolveSections: 无记录 ⇒ inferred（不抛） | resolveSections: captured ⇒ C4 逐字段形状 | resolveSections: turn 缺省 ⇒ 最新楼 | resolveSections: 同一楼多记录 ⇒ 最后一次为准 | resolveSections: 不存在的楼号 ⇒ inferred(no-capture-record) | 容错: schema 版本不认识 ⇒ inferred(schema-version-unknown)，不抛 | 容错: 单行乱码 ⇒ 跳过坏行，好行照常（不抛） | 容错: 整个文件是乱码 ⇒ inferred（不抛） | 容错: sessionId 为空 ⇒ ok:false(bad-request) | sectionOrderKey: 命名约定转换 | registerSectionsCapture: 假 ctx 安全不抛；同一 ctx 幂等 | 结构性反证: 模块不含名单/标记子串式段识别 | 有界前置: 260 楼大文件读取不抛、行数正确 | 有界（C5）: compactWrite 260 楼 ⇒ 文件裁到最近 200 楼；同楼后写覆盖先写 | computeSectionsLayout: rendered/offsets/长度自洽（官方口径） | 反证 A（红）: offset 故意 +1 ⇒ computeSectionsLayout 必须抓（offset-mismatch） | buildRecord（§3.1）: chars/hash 取插值后文本；renderedChars/renderedHash 记录在案 | buildRecord（§3.2/反证 C）: offset 累加；插值后 0 字的段 offset=null（⛔ 不是 0） | 切片回读（单元版）: rendered.slice(offset, offset+chars) 逐字等于该段插值后文本 | 反证 B（红）: 含 {{变量}} 的段若用插值前长度，切片对不上（证明 §3.1 必要） | buildRecord: 未知变量 ⇒ 插值失败如实降级（offset 全 null + 原因，不写真凭据） | resolveSections: offset/renderedChars/renderedHash 原样透传（契约 §4 别丢字段） | resolveSectionText: 无记录 ⇒ no-capture-record（不抛） | resolveSectionText: 楼号不存在 ⇒ turn-not-found | resolveSectionText: 段名不存在 ⇒ ok:false(no-such-section) | resolveSectionText: 0 字段（offset=null）⇒ no-offset；name/sessionId 缺 ⇒ bad-request | resolveSectionText: 凭据（renderedChars/renderedHash）缺失 ⇒ slice-mismatch（不盲切） | sliceSectionByHeader: 凭据相等才切，切出逐字相等；整段对不上 ⇒ slice-mismatch | 端点反证（DoD 8）: 捕获记录的 offset 被改错一位 ⇒ 端点给 slice-mismatch（整段凭据对、单段哈希红） | handleSectionsTextGet: 正常路径 ⇒ 只回被点开的那一段（文本逐字相等） | handleSectionsTextGet: 缺参数/坏 turn ⇒ 400 bad-request | handleSectionsTextGet: sessionQuery 缺席 ⇒ 503（不抛、不降级成猜） | handleSectionsTextGet: 楼在日志里找不到（无 turn/start）⇒ turn-not-found | 新式 system 落点: header 无 system、只有 system/message ⇒ 端点仍切出该段（逐字相等） | 反证（同长度改一字）: system/message 正文被换掉 ⇒ slice-mismatch（⛔ 不靠长度、靠 hash 抓） | 反证: 既没有 header.system 也没有 system/message ⇒ turn-not-found（⛔ 不猜正文） | 分次提交: 同一楼两条 system/message（先前已过时的那条）⇒ 仍切对（候选从后往前试，不硬拼） | 行为级: 两段式 —— 装配期只记结构（offset 留空），等 system/message 来了才定位真 offset | 行为级: ★★ 装配期抄的是瀑布**返回值** —— 下游 `await next()` 之后加进去的段必须被记到 | 行为级 ★★ 底本回退: 本楼没有 system/message ⇒ turn/end 拿上一份定界，且**如实标来路** | 反证 ★ 会话第一楼就没有 system/message ⇒ 没有「上一份」可沿用，⛔ 不许编位置 | 反证 ★ 本楼**自带**正文但定位失败 ⇒ turn/end 不许拿上一份去覆盖它的结论 | ★ 定稿失败要能自查: 记下**哪几段**没落位（⛔ 只有名字与计数），且端点如实转达 | ★ 宿主重启后（内存空）⇒ 从**会话日志的 surface** 恢复上一份底本，照抄宿主那条判据 | SYS1 pickVerifiedSystemText：两道验（长度 + sha256）都对得上才认；⛔ 长度相同内容不同 ⇒ 不认 | SYS2 recordCredentials：只认"非空段 + 带整段凭据"的那一条（⛔ 0 字段/缺凭据都不算） | SYS3 resolveSectionsSystemText：三种"拿不到"各报各的（⛔ 不端半份、不近似）
+ALL PASS
+  ✔ _selftest-sections.mjs
+PASS ① playthroughIdOf：优先 id；没有则从 path 倒数第二段取（含反斜杠）
+PASS ① characterIdOf：优先 ext 字段，退从 path 首段
+PASS ① ★反证：畸形输入一律空串（null/数字/缺字段/段不够）
+PASS ① sessionIdsOfTimeline：head ∪ 各 variants（坏条目跳过）
+PASS ① ★反证：timeline 畸形 ⇒ 空集且不抛
+PASS ② 索引：根会话与分支会话都进来，且各自归对的周目
+PASS ② byId：周目 → { characterId }（解析要拿它拼 `<角色>/<周目>`）
+PASS ② resolveForSession：命中 ⇒ source=session 且带 characterId
+PASS ② ★反证：不认识这个会话 ⇒ source=none（⛔ 端点**不**替你回落配置绑定，事实归事实）
+PASS ② ★冲突：同会话属两周目 ⇒ 先到者胜 + conflicts 如实列出
+PASS ③ ★真机锚：每条周目都解析出 id，且它的 rootSessionId 映射回它自己
+PASS ③ ★真机锚：拿真根会话解析 ⇒ source=session 且 characterId 也在
+  · 真机索引：14 个周目 / 58 条会话 / 冲突 8
+PASS ④ 命中（分支会话也算数）：ok + source=session + characterId/playthroughId 都对
+PASS ④ ★反证：不认识的会话 ⇒ source='none'（面板据此**保持原绑定**，⛔ 不瞎跳）
+PASS ④ ★反证：缺 sessionId ⇒ 如实报缺（不是拿空串去查）
+PASS ④ ★反证：响应里不含任何路径（只回 id 与判词）
+PASS ④ ★反证：catalog 读不到 ⇒ ok:false + FOR_SESSION_NO_CATALOG（⛔ 不假装成"这会话没有周目"）
+PASS ⑤ sessionPlaythroughOf 走会话索引（resolveForSession），⛔ 不碰 rootPlaythroughDir
+PASS ⑤★ memoryHomeFor 用 sessionPlaythroughOf（会话优先），**不许回落 rootPlaythroughDir**
+PASS ⑤★ 反证：把它换成 rootPlaythroughDir()（= 旧的 config 兜底）⇒ 同一句判据必红
+PASS ⑤ sessionPlaythroughDir 由 sessionPlaythroughOf 拼出（会话优先）
+PASS ⑤★ rootFloorsDir 走 sessionPlaythroughDir(sessionId)（语料跟会话），⛔ 不碰 rootPlaythroughDir
+PASS ⑤★ 反证：把它换成 rootPlaythroughDir() ⇒ 同一句判据必红
+PASS ⑤★ 回响（FTS5）那条支线的符号已退役（echoRefreshSync / echoArchiveSource 都不在活代码里；⛔ 不许回流）
+PASS ⑤★ 最近几楼段：语料传 sid（rootFloorsDir(sid)），门也用会话判据（sessionHasPlaythrough(sid)）
+PASS ⑤★ 反证：把 rootFloorsDir(sid) 改回不传参 ⇒ 判据必红
+PASS ⑤ 旧那道按 config 判"算不算本局"的门（boundSessions）已不存在（剥注释后零命中）
+PASS ⑥ ★ variant 行在前 ⇒ 都判给 root 那个周目（判定与行序无关）
+PASS ⑥ ★ root 行在前 ⇒ 都判给 root 那个周目（判定与行序无关）
+PASS ⑥ ★ 冲突仍**如实列出来**（⛔ 不静默丢）
+PASS ⑥ 两个都不是 root 时仍按行序（先到者胜）
+PASS ⑥ ★ 反证：旧的"先到者胜"在这份真机形状上判给了 Rika（错的那个）
+PASS ⑦★ 共用预置目录 = <工作区根>/.roleplay-memory，且**只有真的在**才返回（⛔ 不报不存在的路径）
+PASS ⑦★ 反证：把 `isDirectorySafe(dir)` 那层去掉（无条件返回）⇒ 判据必红
+PASS ⑦★ 段里**两处都写**：本会话周目目录（写） + 共用预置（只读）
+PASS ⑦★ 共用那份**只被 memoryHome 段用**（活代码里恰好 2 次 = 定义 + 段）；⛔ 写路径不碰它
+
+── 36 通过 / 0 失败 ──
+  ✔ _selftest-session-playthrough.mjs
+[PASS] ★1 /api/turns：ok:false + code=session-parse-failed + DSH 原文逐字 + detail{662,13596,13594}（W0 空形状保留）
+[PASS] ★2 /api/messages：同样带 code/detail（不是 0 条 ≠ 空列表）
+[PASS] ★3 /api/session：以前只给 ok:false 不给原因 —— 现在必须给 code/detail，且归档位照旧带上
+[PASS] ★4 /api/part：以前走兜底字符串（只有 ok:false + error 文本）—— 现在也是结构化错误
+[PASS] ★5 反证A：报错里没有行号 ⇒ detail=null（⛔ 不编位置），但原因必须照报、不许折成"会话不存在"
+[PASS] ★6 反证B：健康的会话四条出口全 ok:true，且**一个 error 字段都没有**（不许误伤）
+[PASS] ★6b readError 的归属（结构断言）：成功行显式 null、失败行 readErrorShape —— 都在**会话来源**里，不在接口层
+[PASS] ★7 resolve 出口把 readError 原样带出来（列表行徽标靠它），归档位与 -2 哨兵都不被覆盖
+[PASS] ★8 真解析栈：临时 sessionsRoot 里的坏日志 ⇒ 报 session-parse-failed（不是"会话不存在"、不是 ok:true），resolve 行带 readError
+[PASS] ★9 pmReadFailNotice：健康/别的错误码 ⇒ null（⛔ 不许对健康会话弹这一屏）
+[PASS] ★10 pmReadFailNotice：DSH 原文 + 位置 + 谁的锅 + 影响面，四行齐备
+[PASS] ★11 pmReadFailNotice：没有位置时如实说"不编位置"（⛔ 不许编行号）
+[PASS] ★12 面板接线（结构断言）：主视图在 turns.status=failed 时用 pmReadFailNotice(turns.parseError) 渲染 data-read-fail 盒
+
+== 汇总：13 通过 / 0 失败 ==
+  ✔ _selftest-session-readfail.mjs
+PASS exports.inject 含 'skills'
+PASS lib/client.js 的 inject 未被波及（仍是 [slots]，从导入侧旁证）
+PASS apply(fakeCtx) 不抛
+PASS ① register 被调 **1** 次（2026-09-20 起只剩一个通用 skill）
+PASS ① name = rp-assistant（沿用旧名，内容是新的：通用 + 带资料）
+PASS ① name 符合 ^[a-z0-9][a-z0-9-]*$
+PASS ② description 非空
+PASS ② content 非空且长度 > 500（正文是包内 .md 全文）
+PASS ② whenToUse 给了（人可见、要能被路由到）
+PASS ★ description 开头就是中文名「RP 助手」（name 放不下中文 ⇒ 靠 description 首段露脸）
+PASS ★ 重塑后不该再注册旧的两个 name（列表里不许再出现第二个助手 / 知识库）
+PASS ③ RP 助手的 invocation.userInvocable 不是 false（可出现在 / 列表）
+PASS ③b ★ 目录那一眼（前 500 字）写着「由 dsh-memory-archive 插件注入」
+PASS ③b ★ 目录那一眼写着用途（插件配置 / 安装 / 报错）
+PASS ③b ★ 目录那一眼写着 RP 禁令
+PASS ③b ★ 三条事实**都在**前 500 字以内（不是"描述里有"就算 —— 目录会截断）
+PASS ③b ★ SKILL.md 正文里这三条也都在（万一真被加载，第一眼就看见）
+PASS ③b ★ 反证：注明排到 500 字之后 ⇒ 目录那一眼三条全红
+PASS ③b ★ 反证：剪掉描述里的 RP 禁令 ⇒ 判据必红
+PASS ③b ★ 反证：剪掉「由 dsh-memory-archive 插件注入」⇒ 判据必红
+PASS ④b resourceBase = {kind:directory, path:…/skill/rp-assistant}
+PASS ④b 基准目录真的存在，且三份资料都在里面（否则模型按相对路径读会扑空）
+PASS ★ 加载期必填字段齐（rp-assistant）
+PASS ★ source 取值 = 'runtime'（apply() 里注册的运行时技能；SkillSource 的合法字面量之一）
+PASS ★ 反证：去掉 source 的对象必须被这条断言判为不齐
+PASS ★ 反证：source 传成非字符串（对象）也必须被判为不齐
+PASS ④ disposer 经 ctx.effect 挂上：effect 被调恰好 1 次、带标签、返回值是可调用的 disposer
+PASS ④ 挂上后（未卸载）disposed 仍为 0
+PASS ④ 卸载：调用 effect 持有的 disposer ⇒ disposed 增加 1
+PASS ⑤ 反证：apply() 不抛（读盘失败只降级）
+PASS ⑤ 反证：读不到正文 ⇒ **0 注册**（⛔ 不许注册空壳）
+PASS ⑤ 反证：跳过时有 log.warn 且点名该 skill
+PASS ⑤ 反证：没有任何 disposer 被挂上（没注册就不该挂）
+PASS 临时目录已删除
+
+ALL PASS
+  ✔ _selftest-skills.mjs
+PASS 8: S1 子包本体已归档：`state-bridge/` 不在，`_removed-state-bridge-20260920/` 在（代码还在，只是不挂） | S2 `package.json`：不再导出/打包 state-bridge（⛔ 导出指向缺失文件会让装载炸） | S3 `cordis.patch.yml`（宿主面）：没有 state-bridge 挂载块 | S4 `lib/index.js`：段名册里没有 state:card（留着会让 replace 看守永远报"缺失"） | S5 `preset-modules/rp-tool-scope.js`：保留名单里没有 state_*（工具都不存在了） | S6 面板：`state:card` 只作"已退役"的历史识别保留（⛔ 不再当预期存在的段） | S7 预设（若本机有）：两级挂载都没了，且正文改指 `state.md` | S8 四个 state_* 工具名不再出现在**任何** lib/ 源码里（⛔ 防回流；注释提及不算）
+ALL PASS
+  ✔ _selftest-state-removed.mjs
+  ✔ ① 代码栏 JSON 能抓出来
+  ✔ ① 没有代码栏也能靠括号配平抓出来
+  ✔ ① 解析：summary + tags 都拿到
+  ✔ ① 多条：全都收下（anima 是一批多条切片）  ["甲","乙"]
+  ✔ ① 纯文本兜底：当成一条收下、tags 空
+  ✔ ① 空输出 ⇒ ok=false（不给空摘要）
+  ✔ ② 机制锚：把指令自己的连续 3 行当输出 ⇒ 必须判成回声  "Summarize the following roleplay transcript segmen"
+  ✔ ② ★真锚：从**生成器产出**（真指令文本所在处）截的连续 3 行 ⇒ 必须判成回声  "//   我们的指令作为最后一条 user 消息追上去 —— 这次辅助调用是上一次真实请求的前缀延长"
+  ✔ ② ★反证：纯文本回声 ⇒ ok=false、items 空、echo=true（⛔ 一个字节都不许落盘）  {"ok":false,"items":[],"usedJson":false,"echo":true}
+  ✔ ② ★反证：回声包成合法 JSON 也要拒（不能只防纯文本那条路）  {"ok":false,"items":[],"usedJson":true,"echo":true}
+  ✔ ② ★反证：坏 JSON 里的回声同样拒（纯文本兜底那条路也上了闸）  {"ok":false,"items":[],"usedJson":false,"echo":true}
+  ✔ ② ★反证：正常中文摘要不受影响（别把真摘要误杀）  {"ok":true,"items":[{"text":"1966年9月1日 上午：顾筱潋在一个陌生的旅馆房间醒来，失去记忆；她用犬齿刺破下唇，用血充当口红。\n之后她把公民证与旧围巾装进皮箱，门外的脚步声打断了她的行动。","tags":
+  ✔ ② ★反证：正常 JSON 摘要不受影响
+  ✔ ② 相：形状合规、正文原创的 JSON 摘要 ⇒ **不**是回声（不按行数判）  行命中 4/5 = 0.80
+  ✔ ② ★反证：同一份夹具在**旧判据**（命中行数 ≥ 0.5）下必被判成回声 ⇒ 证明确是这条判据在误伤  旧判据比例 0.80
+  ✔ ② 相：真回声（指令连续 3 行当输出）在新判据下**仍然**判得出
+  ✔ ② 兼容：不给 instruction ⇒ 回声闸门不生效（拿不到指令就只按结构判，不瞎猜）
+  ✔ ② 畸形输入不抛
+  ✔ 无破限/无前文 ⇒ [system(指令), user(正文)]  ["system","user"]
+  ✔ 有破限+有前文 ⇒ system 里破限+指令、user 里前文+正文  ["system","user"]
+  ✔ ③ dryRun：报出要清几条、零写入  {"content":2}
+  ✔ ③ 清空：报告 cleared=2 / backupFiles=2  {"cleared":2,"backup":2}
+  ✔ ③ 备份正文在（可恢复）  c1/p1/archive/_backup-summaries-2026-09-25T18-34-39-062Z
+  ✔ ③ 原文件被清空（tavern 无删除接口 ⇒ 清空是最干净处置）
+  ✔ ③ index 只留 import-*  ["import-abc12345"]
+  ✔ ③ manifest 的 summaries.count 跟着改成保留数
+  ✔ ③ 原文楼层一个都没动
+  ✔ ③ 再清一次：reason 说明没有可清的（不假装干了活）  没有内容摘要可清（可能已经清过了）
+  ✔ ③★ 备份失败 ⇒ 那条不清（正文还在）、失败计数与原因都在  {"ok":false,"failed":1,"results":[{"id":"s-0000-0004-1","ok":false,"error":"BACKUP_FAILED 备份写盘失败（模拟）"}]}
+  ✔ ④ ★反证：lib/ 源码里不再出现 callSummaryModel
+  ✔ ④ ★反证：lib/ 源码里不再出现 DEFAULT_SUMMARY_API_URL
+  ✔ ④ ★反证：lib/ 源码里不再出现 '/summarize/plan'
+  ✔ ④ ★反证：lib/ 源码里不再出现 '/summarize/apply'
+  ✔ ④ /summarize/reset 端点仍在（运维口不该被顺手删掉）
+  ✔ ④ summarize.js 不再 import 任何模型调用（模块内无 fetch 调用）
+  ✔ ④ 面板不再请求 plan/apply 两条侧路（只剩 reset 与 retrieval/test）
+  ✔ ④ 回声判据的消费方已接到压缩链（collect-scan import + prompt-echo 播报）
+
+★ summarize 残余面：全过（37 条）
+  ✔ _selftest-summarize.mjs
+[PASS] ②反证：v3 的 request/header 确实**没有** system 字段 ⇒ 只读 header 的旧实现只可能是 0 字符
+[PASS] ①v3：第 1 楼 part=system 给出 system/message 的正文，来源=system/message
+[PASS] ①b v3：/api/turns 里该楼的 systemChars 是真长度（用户说的「字段」）
+[PASS] ①c v3：/api/session 的 requests 摘要里 systemChars 也为真（列表页那列）
+[PASS] ④第 2 楼取到的是第 2 楼的 system（不是第 1 楼的）
+[PASS] ⑤第 3 楼 header 之后的那条不算进本楼（按 seq 规则），仍只算 header 之前那条
+[PASS] ③老形状：header 自带 system ⇒ 用它，来源=header，且不叠加同楼 system/message
+[PASS] ⑥本楼没有 system ⇒ 回退上一楼，来源标 system/message(prev-turn)（不许冒充本楼）
+[PASS] ⑦两处都没有 ⇒ chars:0 + systemSource:null（如实未知，不编正文）
+[PASS] ⑧按楼归堆：第 1 楼看 A、第 2 楼看 B1、第 3 楼看「第三楼第一段」，三条互不相同
+
+10 PASS / 0 FAIL
+  ✔ _selftest-system-v3.mjs
+PASS 1a VIBE_TAGS 冻结
+PASS 1b VIBE_TAGS 逐字等于 anima 实测枚举（10 个，顺序一致）
+PASS 1c VIBE_TAGS 无重复
+PASS 1d TAG_VOCABULARY 冻结且 = 10 vibe + Important（11 个词表值）
+PASS 1e IMPORTANT_TAG 常量逐字 = Important
+PASS 2a normalizeTags('important'/'IMPORTANT'/'Important') 归一到同一值
+PASS 2b vibe 同样大小写不敏感（suspense → Suspense）
+PASS 3a 词表外的值被剔除、词表内保留、重复去重
+PASS 3b 非字符串/空串/空数组 ⇒ []
+PASS 4a validateTags({vibe:'Nope'}) 报问题、tags.vibe=null、不抛
+PASS 4b 非对象输入给安全空值 + 问题（不抛）
+PASS 4c special 词表外剔除并计数、important 非布尔按 false + 问题
+PASS 4d 全对 ⇒ ok:true 且零问题
+PASS 5a vibe+important 进扁平数组（Important 收编）
+PASS 5b special 里的词表值一并收编、去重
+PASS 5c 全空 ⇒ []（⛔ 不编）
+PASS 6a 标准末行 tags 行命中并解析
+PASS 6b 代码围栏包裹的末行也命中
+PASS 6c 没有 tags 行 ⇒ found:false（⛔ 不猜）
+PASS 6d 中间行的 tags 样文本不算（只看末尾 4 个非空行）
+── 20 通过 / 0 失败 ──
+  ✔ _selftest-tags.mjs
+== _selftest-tavern-field-plan.mjs · 上游卡字段的位置计划 ==
+[PASS] P1 ★ 字段清单覆盖上游**全部**能解出来的字段（抄自 profile-loader.js 的 fallbacks + userSource/worldbook/preset/generated）
+[PASS] P1b ★ 反证：上游**不会**注入的字段名不许编进表里（creatorNotes / characterBook / firstMessage 都只是我们自己的叫法）
+[PASS] P2 每条注释一句话：点名"它是什么字段" + 12 条各不相同（⛔ 复制同一句就红）；st 短标签还在
+[PASS] P2c ★★ 摘除后处理指令那一份：整个摘掉（⛔ 不是清空）；只摘它、认不出的照旧留着
+[PASS] P2b ★ 反证：兜底条**不许编**意义与 ST 位置（不认识就得说不知道）
+[PASS] P3 ★ 位置：PHI 排最后（> persona-suffix 10200 与 mt:lastFloors 10202）；开场白在 persona 槽之前；卡字段按 ST 先后
+[PASS] P3b ★ 反证：我们派的 order **不占**别的插件的槽位（0/1/2 是我们的、45+ 是别人的）
+[PASS] P4 parseTavernPart：认出真机段名；⛔ 认不出（profile 段、别的插件段、空）⇒ null
+[PASS] P4b planForField：已知字段给计划；预设条目按前缀命中；⛔ 认不出给兜底（不返回 null）
+[PASS] P4c placeTavernParts：给每个 part 派 order 并按目标位置插进段表；**非 part 段原地不动**
+[PASS] P4d ★★ 开场白：说明**另起一段**插在它前面（⛔ 绝不改开场白正文 —— 改它会让捕获锚不上、那段整个消失）
+[PASS] P4e ★ 反证：没有 part 段 ⇒ **原样返回同一个数组**（不重排别人的段）；畸形输入不抛
+[PASS] P4f ★ 多条世界书：同 order，保持上游给的先后（稳定）
+[PASS] P4g ★ 反证：认不出的字段名也照样摆（兜底 order）并且计数报出来
+[PASS] P4h describePlacement：给出 `字段→order` 摘要（⛔ 不出正文）
+[PASS] P4i ★★ 反证（沙箱实测踩到的真坑）：**段上没有 order** 时也必须摆对位置（⛔ 不许全插到最前面）
+
+== 汇总：16 通过 / 0 失败 ==
+  ✔ _selftest-tavern-field-plan.mjs
+PASS ① 空串：ok 且零块、覆盖度 1
+PASS ① 空串：版本号带出来
+PASS ② 只-preset 路径的头被认出来（不是未归属文本）
+PASS ② 只-preset 路径的块解出来了
+PASS ② 只-preset 路径没有卡字段块（如实为零，而不是编一个）
+PASS ② 只-preset 路径也会报盲区（有 main 无 system-prompt 标签）
+PASS ③ 头部被识别、键名与值长都在（⛔ 不含值）
+PASS ③ 块序列正确（预设 2 + 卡字段 3 + user 1 + 世界书 3 + 导入 1 + 头 1）
+PASS ③ 预设块带出 identifier 与 role
+PASS ③ 卡字段块映射到 ST 字段名（含 greeting-reference 这类旁支）
+PASS ③ 世界书带出 entry 与 position，且多条被分成多块
+PASS ③ 导入上下文是独立一种（不是 unknown）
+PASS ③ 不变量守恒 + 独立复算也平
+PASS ③ 覆盖度：已归属 + 分隔符 === 总长
+PASS ③ 绝对偏移 = sectionOffset + 相对偏移（给了才给）
+PASS ③ 没给 sectionOffset 时绝对偏移为 null（⛔ 不是 0）
+PASS ③ byField 汇总：description 的块与字数对得上
+PASS ③ 正文切片逐字等于原串里的那段（innerOffset/innerChars 可信）
+PASS ③b 没有头 ⇒ header.present=false + 有 header-absent 告警
+PASS ③b 没有头时首块仍被正确解出（没被当头部吃掉）
+PASS ④ 未喂字段原文时：main 的拼接必须被当成**盲区**说出来
+PASS ④ 未喂字段原文时：不许声称定位到了 system_prompt
+PASS ④ 喂了原文：被拼进 main 的 system_prompt 逐字定位到，并指明它落在哪个块里
+PASS ④ 定位到的位置能切回原文本身
+PASS ④ 有标签的那一段也照样能定位（落在 character-field 块里）
+PASS ④ ★ 原文不在这段里 ⇒ 如实说没找到，⛔ 不许近似命中
+PASS ④ byField 把"拼进去的"与"有标签的"分开记（不许混成一个数）
+PASS ⑤-1 收尾标签写错 ⇒ 必须说出来（未闭合 或 块内出现开标签），⛔ 不许静默吞并
+PASS ⑤-1 吞并的后果可读：卡字段块数从 3 掉到 2（读者据此知道丢了一块）
+PASS ⑤-1 即便吞并，不变量仍守恒（诚实：文本事实被完整记账，不是丢字节）
+PASS ⑤-2 无标签文本 ⇒ unknown-text 且被点数
+PASS ⑤-2 ★ 无标签文本不许让任何字段凭空多出来
+PASS ⑤-2 覆盖度仍守恒（未归属也被算进去）
+PASS ⑤-3 未知标签 ⇒ unknown-tag + 有 warning + 不归任何字段
+PASS ⑤-4 不认识的卡字段 name ⇒ 有 warning 且 field 为 undefined
+PASS ⑤-5 反证：人为把某块 chars 改大 ⇒ 独立复算必须报不平
+PASS ⑤-5 反证：人为改分隔符 ⇒ 独立复算必须报不守恒
+PASS ⑤-5 反证：喂垃圾 ⇒ 必须报错而不是静默通过
+PASS ⑤-6 position 不是 before/after ⇒ 原样记 + 有 warning
+PASS ⑥ ★ 结果里不含头部值（角色名哨兵）
+PASS ⑥ ★ 结果里不含正文（正文哨兵）
+PASS ⑥ ★ 结果里不含字段原文（即使喂了 fieldTexts 做定位，也只回位置不回原文）
+PASS ⑥ 头部只回键名与值长
+PASS ⑦ 7 个卡字段名单与 M3 PR 的 card-fields 接口一致
+PASS ⑦ 解算器零依赖 / 零写入（不 import 任何东西、不碰 fs/网络）
+
+ALL PASS
+  ✔ _selftest-tavern-profile-solver.mjs
+[PASS] C1 静态会话（1 条 header）turns.length===3、latest===3
+[PASS] 第 1 楼 requestLogged:true、第 2/3 楼 requestLogged:false + headerCarried:true + systemChars 1946
+[PASS] ★反证 1：数 request/header 的旧锚点只会得 1 ⇒ turns.length===3 的断言必红
+[PASS] seqRange / startedAt / messageCount 形状
+[PASS] C3 part=messages：turn=1 与 turn=2 不同，第 3 楼包含第 2 楼内容（单调增长）
+[PASS] ★反证 2：会话级全文（旧 messagesText 语义）对任何楼都一样 ⇒ turn1≠turn2 断言必红
+[PASS] 无 request/header：headerAvailable:false、systemChars/toolCount null（不猜）、part=system ok:false
+[PASS] 有 header 时响应不出现 headerAvailable 字段（缺省即 true，W0 约定）
+[PASS] 解析失败：ok:false + error.code=session-parse-failed + turns:[]/latest:0（与 0 楼可区分）
+[PASS] part=system carried 楼：mutabilityBasis:'header-equal' + sessionId/turn/chars
+
+summary: 10 passed, 0 failed :: _selftest-turns
+  ✔ _selftest-turns.mjs
+[PASS] ① 正向：段序照**用户定稿的注入口径**（主要提示词第一、后处理最后、⛔ 不注入开场），卡字段各成一段
+[PASS] ①b ★ 顺序口径三条硬规矩：主要提示词必须在**第一段**；后处理必须在**最后一段**；⛔ 任何段里都不许出现开场原文
+[PASS] ② 世界书只放本轮命中（decisions=included）：被 rejected 的那条必须不出现；provenance 标注判定依据
+[PASS] ②b ★ 裸 uid / 全名 / **数字** 三种写法都要认（真机给的是裸 uid，且可能是数字 —— 只认一种就静默少注入）
+[PASS] ③ 反证 A：把「命中判定」当成「没判定」⇒ selectLoreEntries 会退回候选集（判据必须能区分这两种）
+[PASS] ③b 反证 B：把 decisions 全标 included ⇒ 未命中那条必须出现（证明 ② 不是橡皮图章）
+[PASS] ④ 开场白**一律不注入**（不论首轮与否）；首轮只在来源标记里如实记一句
+[PASS] ⑤ 空字段/缺字段 ⇒ 略过该段（⛔ 不吐空标签），且不编内容
+[PASS] ⑥ preferCharacterSystemPrompt/PreferCharacterPostHistory=false ⇒ 对应段不产出（选择被尊重）
+[PASS] ⑦ callConfig：默认**不回传**（保守）；显式 echoSuggestedCallConfig=true 才回传
+[PASS] ⑧ 坏输入（null / 字符串 / 数组 / 空对象）⇒ 绝不抛，最多一段来源标记
+[PASS] ⑨ registerV3Composer：默认关不注册；owner 不合法不注册（都不碰服务）
+[PASS] ⑩ 软注入：Tavern 服务缺席时**不注册也不抛**（硬 inject 会让整个 Host 起不来，沙箱实测过）；服务出现才注册一次
+[PASS] ⑪ 合同纪律：compose 必须**同步**返回（不是 Promise）、不 await、段名走 upstream 命名空间
+[PASS] ⑫ ★ 宏处理（现场踩到的坑）：`{{user}}`/`{{char}}` 用 macroContext 展开，解不了的**中和**成不带花括号的词 —— 因为 DSH 会把 `{{名字}}` 当变量并**直接让整轮失败**
+[PASS] ⑫b 反证：把宏处理去掉（直接塞原文）⇒ 段里必然出现 `{{user}}`（证明 ⑫ 不是橡皮图章）
+[PASS] ⑫c 畸形嵌套（`{{a{{b}}}}`）也要被拆开 —— DSH 对它是 malformed 而不是普通文本
+[PASS] ⑬ ★ 上游合同最硬的一条：段对象**只许有 `{id, text}`**（多一个键就 422 "Sections require unique ids and text" —— 我就是这么栽的）
+[PASS] ⑫d 认得出但**值为空**的宏 ⇒ 留空（与内置观感一致），⛔ 不漏出字面词 `char`
+
+== v3 组合器自检：19 通过 / 0 失败 ==
+  ✔ _selftest-v3-composer.mjs
+
+C1 常量与路径
+  ✔ C1a 版本是正整数
+  ✔ C1b 根路径与 Tavern 的 API_V3 一致
+  ✔ C1c :part: 前缀 = 插件 id + ":part:"
+  ✔ C1d profile 段名 = 插件 id + ":profile"
+  ✔ C1e ★ 反证：:part: 前缀**不是** profile 段名的前缀（两者不能互相误吞）
+
+C2 detectV3Contract
+  ✔ C2a 真样本 trace ⇒ trace
+  ✔ C2b 真样本 composer ⇒ composer
+  ✔ C2c ★ 反证：两份真样本判出的合同**必须不同**（这正是当初静默谎报的根因）
+  ✔ C2d ★ 前瞻：contract 字符串换了但自述否认注册表 ⇒ 仍判 trace
+  ✔ C2e ★ 反证：自相矛盾（否认注册表却又列出 composers）⇒ 保守判 composer，不判 trace
+  ✔ C2f 只有 service 字段 ⇒ composer
+  ✔ C2g 只有 modes 数组 ⇒ composer
+  ✔ C2h ★ 反证：认不出的形状 ⇒ unknown 且 known:false（⛔ 不猜成任意一套）
+  ✔ C2i.undefined 形状「undefined」⇒ absent 且 known:false 且不抛
+  ✔ C2i.null 形状「null」⇒ absent 且 known:false 且不抛
+  ✔ C2i.字符串 形状「字符串」⇒ absent 且 known:false 且不抛
+  ✔ C2i.数组 形状「数组」⇒ absent 且 known:false 且不抛
+  ✔ C2i.ok:false 形状「ok:false」⇒ absent 且 known:false 且不抛
+  ✔ C2j 判词非空（面板要显示"为什么这么判"）
+
+C3 contractInfo：只有判得准的时候才敢说"可用/不可用"
+  ✔ C3a trace ⇒ 组合器不可用、尾部段服务不可用、模式不可切
+  ✔ C3b composer ⇒ 三项都可用
+  ✔ C3c.absent ★ 反证：absent ⇒ 三项一律 null（值域是 true/false/null，"读不到"绝不等于"失效"）
+  ✔ C3c.unknown ★ 反证：unknown ⇒ 三项一律 null（值域是 true/false/null，"读不到"绝不等于"失效"）
+  ✔ C3d 真样本判词交叉核对：trace 的 detail 必须点名 composerRegistry，composer 的必须点名 external
+
+C4 v3Paths：两套合同的端点**不通用**
+  ✔ C4a capabilities 只有一条路径（两套共用）
+  ✔ C4b composer 的 sources 走 prompt-sources
+  ✔ C4c trace 的 sources 走 sources
+  ✔ C4d ★ 反证：同一个会话，两套合同的 sources 路径**必须不同**（拼错就是 404 静默）
+  ✔ C4e mode 只有 composer 有；trace ⇒ null
+  ✔ C4f assemblies 只有 trace 有；composer ⇒ null
+  ✔ C4g trace 的单条详情路径
+  ✔ C4h ★ 反证：缺 sessionId / recordId 一律 null（⛔ 不拼出半个 URL）
+  ✔ C4i sessionId 会被 URL 编码
+
+C5 parsePartSectionName
+  ✔ C5a.0 真名 pmp-dsh-tavern:part:0000:generated:header ⇒ ordinal/kind/field
+  ✔ C5a.3 真名 pmp-dsh-tavern:part:0003:character:description ⇒ ordinal/kind/field
+  ✔ C5a.7 真名 pmp-dsh-tavern:part:0007:preset:prompts_0_content ⇒ ordinal/kind/field
+  ✔ C5a.11 真名 pmp-dsh-tavern:part:0011:worldbook:content ⇒ ordinal/kind/field
+  ✔ C5b ★ 反证：profile 段名**不是** :part: 段 ⇒ null
+  ✔ C5c ★ 反证：我们自己的段名不是 :part: 段 ⇒ null
+  ✔ C5d ★ 反证：别的插件的同名族不误吞（前缀必须精确是 pmp-dsh-tavern）
+  ✔ C5e. 畸形「」⇒ null 且不抛
+  ✔ C5e.null 畸形「null」⇒ null 且不抛
+  ✔ C5e.undefined 畸形「undefined」⇒ null 且不抛
+  ✔ C5e.pmp-dsh-tavern:part: 畸形「pmp-dsh-tavern:part:」⇒ null 且不抛
+  ✔ C5e.pmp-dsh-tavern:part:abcd:x:y 畸形「pmp-dsh-tavern:part:abcd:x:y」⇒ null 且不抛
+  ✔ C5e.pmp-dsh-tavern:part:0001: 畸形「pmp-dsh-tavern:part:0001:」⇒ null 且不抛
+  ✔ C5e.pmp-dsh-tavern:part:0001 畸形「pmp-dsh-tavern:part:0001」⇒ null 且不抛
+  ✔ C5f ★ field 里含冒号时只切第一个（field = "a:b"，不是 "a"）
+  ✔ C5g 只有 kind 没有 field ⇒ 不抛，field 为空串
+  ✔ C5h ★ sanitized 标记：带 field 的为 true（上游把非 [A-Za-z0-9_.:-] 换成了 _，不可逆）
+
+C6 fieldChars
+  ✔ C6a 七个字段里空串的那个被跳过
+  ✔ C6b 字数取 characters 口径
+  ✔ C6c alternateGreetings 给合并字数 + 条数（"g1"+"g222" = 6 字 / 2 条）
+  ✔ C6d ★ 反证：非字符串字段不猜（数字 42 不当成 2 个字）
+  ✔ C6e ★ 反证：畸形输入不抛且回空数组
+
+C7 projectSources：两套合同的 sources 形状一致，共用一个投影
+  ✔ C7a 卡名 / 卡 id / revision / 计数单位都取到
+  ✔ C7b 开场给 requested/effective/semantics/chars 四件
+  ✔ C7c 世界书六个计数各自独立
+  ✔ C7d fieldLengths 只给条数（面板要的是"有没拿到"，不是逐条）
+  ✔ C7e preset 选中但文档为 null ⇒ 不抛
+  ✔ C7f ★ 反证：**不把卡字段正文交给面板**（哨兵串一个都出现不了）
+  ✔ C7g ★ 反证：畸形输入 ⇒ null 且不抛
+  ✔ C7h preset 是 null（没选预设）⇒ **append** 而不是 null（照上游口径：没预设时有效模式就是 append）
+  ✔ C7i preset.systemPromptMode === "replace" ⇒ replace
+  ✔ C7j preset 选了但没写 systemPromptMode ⇒ append（照上游口径兜底）
+  ✔ C7k ★ 反证：documents 里**没有** preset 这个键 ⇒ null（读不到就是读不到，⛔ 不猜成 append）
+
+C8 projectAssemblyIndex：实时记录与 legacy 适配记录要分得开
+  ✔ C8a 两条都在、按原序
+  ✔ C8b legacy 被标出来
+  ✔ C8c ★ 反证：legacy 的 sectionCount 是 **null** 而不是 0（0 会被读成"采到了但零段"）
+  ✔ C8d storage 原样带出（面板要显示容量）
+  ✔ C8e ★ 反证：畸形 ⇒ null 且不抛
+  ✔ C8f 空索引是合法的成功（不是错误）
+  ✔ C8g maxRecords 截断只丢**最旧**的
+
+C9 projectAssemblyRecord：段级元数据 vs 段正文
+  ✔ C9a 段数与上下文档数
+  ✔ C9b :part: 段被解析出 kind/field
+  ✔ C9c 非 :part: 段 part 为 null（我们的 state:card 不会被误认）
+  ✔ C9d 来源投影保留 kind/field/resourceId/relationship
+  ✔ C9e delivery 带 provider/model/toolNames（工具面终于有正规来源）
+  ✔ C9f ★ 反证：**默认不投影段正文**（投影里出现不了"正文甲"）
+  ✔ C9g ★ 反证：**不投影 systemMessages 全文**
+  ✔ C9h ★ 反证：assemblyVerified 为 false 时如实为 false（⛔ 不把"没核对上"说成核对上了）
+  ✔ C9i 显式 includeText 才带正文
+  ✔ C9j ★ 反证：omitted-size-limit 时 textAvailable 为 false（超限没正文就说没有）
+  ✔ C9k ★ 反证：畸形 ⇒ null 且不抛
+
+C10 pickSectionText：按需取正文，越界不猜
+  ✔ C10a 取得到 index=0 那段
+  ✔ C10b index=2 那段
+  ✔ C10c ★ 反证：text 不是字符串 ⇒ null（不是空串 —— 空串会假装"有正文但是空的"）
+  ✔ C10d.-1 越界/非法索引「-1」⇒ null
+  ✔ C10d.3 越界/非法索引「3」⇒ null
+  ✔ C10d.999 越界/非法索引「999」⇒ null
+  ✔ C10d.1.5 越界/非法索引「1.5」⇒ null
+  ✔ C10d.NaN 越界/非法索引「NaN」⇒ null
+  ✔ C10d.Infinity 越界/非法索引「Infinity」⇒ null
+  ✔ C10d.0 越界/非法索引「0」⇒ null
+  ✔ C10d.null 越界/非法索引「null」⇒ null
+  ✔ C10d.undefined 越界/非法索引「undefined」⇒ null
+  ✔ C10e ★ 反证：畸形 record ⇒ null 且不抛
+  ✔ C10f ★ 有缺口时按 index 找得到（index=14 在数组下标 1）
+  ✔ C10g ★ 有缺口时 index=34 找得到（数组只有 3 个元素）
+  ✔ C10h ★ 反证：按下标取会取错的那一格 —— index=1 是**不存在**的 ⇒ null（⛔ 不许拿数组下标顶替）
+  ✔ C10i ★ 反证：index=2 也不存在 ⇒ null
+  ✔ C13a 全在 ⇒ observed=true、present 全、missing 空、wholesale/partial 都 false
+  ✔ C13b ★ 反证（这是 replace 的签名）：一个都不在 ⇒ wholesale=true（atRisk 的强信号）
+  ✔ C13c 缺一部分 ⇒ partial=true 但 wholesale=false（⛔ 不喊狼来了：可能只是某插件没启用）
+  ✔ C13d ★ 反证：段表为空 ⇒ observed=false（还没装配过，⛔ 不据此下结论）
+  ✔ C13e ★ 反证：畸形输入不抛（null / 字符串 / 数字 ⇒ observed=false）
+  ✔ C13f ★ 反证：我们的名字清单为空 ⇒ 不判"全缺"（那是无意义输入，不是危险）
+  ✔ C13g 空段也算"在"（DSH 为每个已注册段落一行，text 可为空）—— 这正是它与"有没有正文"无关的原因
+
+── 108 通过 / 0 失败 ──
+  ✔ _selftest-v3-contract.mjs
+== _selftest-v3-observe-cache.mjs · 段表观察缓存 ==
+[PASS] C1 存了就能取到；空 id / 非对象不存、不抛
+[PASS] C2 TTL：边界含等号；超过 ⇒ null 并把行丢掉；时钟倒退也当过期
+[PASS] C3 有界 + LRU；非法 ttl/maxSessions 回落默认
+[PASS] C4 ★ 反证：stats 只出计数与年龄（尾 6 位会话号），⛔ 不出内容
+[PASS] C5 drop / clear 语义
+
+== 汇总：5 通过 / 0 失败 ==
+  ✔ _selftest-v3-observe-cache.mjs
+== _selftest-v3-panel.mjs · v3 面板纯函数自检 ==
+[PASS] 前置：__v3 出口存在且是函数；__internals 键集合未被本单改动
+[PASS] ① Tavern 没有 v3（404）⇒ 明说"这台没有 v3"，⛔ 不装作可用
+[PASS] ② 正常投影：capabilities + 组合器 + 上限 + 本会话 mode 都摊成行
+[PASS] ③ 缺 sessionId ⇒ 明说"未给"，⛔ 不假装读到了 mode
+[PASS] ④ 反证：卡片正文**不进面板**（只给字数/序号；正文请走 Tavern 自己的界面）
+[PASS] ⑤ 形状不对（null/字符串/数组）⇒ 一行"取不到"，⛔ 不抛
+[PASS] ⑥ 读不到 mode / sources ⇒ 各给一行 error，且都带原因码（⛔ 不空白）
+[PASS] ⑦ 配置说启用但进程没注册 ⇒ 必须给"要重启宿主"的醒目行（⛔ 不许显示成已生效）
+[PASS] ⑧ trace 合同 ⇒ 必须说清"组合器/切模式这两条路不存在"，⛔ 不给"重启宿主"那种无效指引
+[PASS] ⑨ ★ replace 看守：atRisk 时必须出**醒目**行（warn），且点名我们哪几段会被整批滤掉
+[PASS] ⑨b ★★ 看守改版（2026-09-18）：以**直接观察**为主 —— 一个都不在才喊危险；缺一部分只如实报
+[PASS] ⑩ ★ 合同认不准 ⇒ 明确警告"下面的状态一律不可信，⛔ 别按它做判断"
+[PASS] ⑩b ★ 卡字段摆位必须可见：接线/未接线都要说清，且报出"上游解出几段、我们摆了几段"
+[PASS] ⑩c ★ 摆位 armed（等第一个会话事件）是**正常待启用**，⛔ 不许渲染成警告
+[PASS] ⑪ assemblyLines：段级明细摊成行，:part: 段给出来源归属
+[PASS] ⑫ ★ 反证：assemblyVerified=false 时必须警告 offset 不能当实际位置用，且**不显示** offset
+[PASS] ⑬ ★ 反证：assemblyLines 只摊它认识的键 —— 段正文（哨兵）一个都进不来
+[PASS] ⑭ assemblyLines：空段/无投递/畸形都如实说，且不抛
+
+== 汇总：18 通过 / 0 失败 ==
+  ✔ _selftest-v3-panel.mjs
+
+── A) 常量逐字（本模块 + anima 侧交叉比对） ──
+PASS A1 三个动作名 + 中文短名 + 三张文件名 + removed 前缀 逐字（与冻结契约一致）
+PASS A1 ★反证（动作名漂一个字 ⇒ 判据必须红）
+PASS A1 ★反证（文件名漂一个字 ⇒ 判据必须红）
+PASS A2 跨包逐字：PANEL_ACTIONS 两边相同
+PASS A2 跨包逐字：PANEL_ACTION_LABELS 两边相同（键序 + 中文）
+PASS A2 跨包逐字：PANEL_REQUEST_FILE
+PASS A2 跨包逐字：PANEL_RESULT_FILE
+PASS A2 跨包逐字：VECTOR_INFO_FILE
+PASS A2 跨包逐字：PANEL_REMOVED_PREFIX
+PASS A2 ★反证有效前提：tamper 真的改到了 anima 源码（否则下一条是空转）
+PASS A2 ★反证（anima 侧动作名改一个字 ⇒ 判据必须红）
+
+── B) makeRequest 白名单 ──
+PASS B1 ingest-now 能造单子（version/id/action/note/at 齐）
+PASS B1 rebuild 能造单子（version/id/action/note/at 齐）
+PASS B1 delete-vector 能造单子（version/id/action/note/at 齐）
+PASS B2 两次造单子 id 不同（不是死 id）
+PASS B3 不认识的动作 ⇒ null："enable"
+PASS B3 不认识的动作 ⇒ null："REBUILD"
+PASS B3 不认识的动作 ⇒ null：""
+PASS B3 不认识的动作 ⇒ null：" rebuild"
+PASS B3 不认识的动作 ⇒ null：null
+PASS B3 不认识的动作 ⇒ null：undefined
+PASS B3 不认识的动作 ⇒ null：42
+PASS B3 不认识的动作 ⇒ null：{}
+PASS B3 不认识的动作 ⇒ null：["rebuild"]
+PASS B3 isKnownAction 只认那三个
+PASS B3c 退役动作 delete-bm25 不在白名单里（isKnownAction 必须拒它）
+PASS B3 尾部多一个空格也不认（⛔ 不做 trim 猜法）
+PASS B3 ★ 白名单裁决只有一处（makeRequest 直接问 isKnownAction） ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS B3b isKnownAction 只在 PANEL_ACTIONS 上判（不另抄一份名单） ★反证（挖掉关键行 ⇒ 判据必须红）
+
+── C) readVectorState 容错与现算 ──
+PASS C1 没有任何文件 ⇒ 不抛
+PASS C1 info/result/staleMs 全 null，live.vector/live.retrieval 为 null（⛔ 不猜路径）
+PASS C2 快照是坏 JSON ⇒ 不抛且 info=null（⛔ 不把半截当快照）
+PASS C2 快照是数组（合法 JSON、不是对象）⇒ info=null
+PASS C2 回执坏掉 ⇒ result=null 但不影响 info
+PASS C3 快照原样交出（info.collectionId / isolation 都在）
+PASS C3b isolation.boundSource 原样透出（面板要标"来源：活跃会话/面板绑定"）
+PASS C3b info.ingest.state.reason 原样透出（anima describeIngest 写的那句人话）
+PASS C3b live.ingestState 里同样有 reason（面板优先用它渲染"上次入库"）
+PASS C3 result 原样交出（回执 id 对得上）
+PASS C3 ★★ live.vector.count 是**现算**的 3 条，⛔ 不是快照里那个过期的 999
+PASS C3 ★反证（这条判据咬得住）：快照里的旧数字确实是 999 ⇒ 两种读法给出不同答案，不是碰巧相等
+PASS C3 live.vector.exists=true + mtime 是数字
+PASS C3c ⛔ live 里没有 bm25 这一项（退役不许回流；面板那一行只读 BM25_RETIRED 的说明）
+PASS C3 live.ingestState 是现读的文件（finishedAt=7），不是快照里那份
+PASS C3 staleMs ≈ 5 秒前（用 info.at 算，不是拿 Date.now 当快照时间）
+PASS C3 ★★ 快照不动、只动盘 ⇒ live.vector.count 立刻变 4（证明它真在问盘）
+PASS C4 items 不是数组 ⇒ exists:true、count:null（⛔ 不把"读不到"当成 0 条）
+PASS C4 库目录不存在 ⇒ exists:false、count:null
+PASS C4 没有 collectionId ⇒ vector 为 null（拿不到集合名就不猜）
+PASS C4 info.at 不是数字 ⇒ staleMs=null（不吐 NaN）
+PASS C6 vectorRoot 是空串 ⇒ vector {exists:false, count:null}（⛔ 不是 null——快照明明在）
+PASS C6 ★反证（把 vectorRoot 填回来 ⇒ 同一张快照给出 exists:true——上一条不是恒真）
+PASS C6 dataRoots 空对象 ⇒ vector {exists:false, count:null}（⛔ 不编 0）
+PASS C6 ★反证（快照整个坏掉 ⇒ 仍是 null 而非 exists:false——两态不同）
+PASS C7 items 展开成 5 条，total=5
+PASS C7 好条目：index/tags/字数/正文预览/时间戳都在
+PASS C7 正文读不到的条目（坏 JSON + 缺文件）+ 残条 ⇒ unreadable 恰好 3（字数都 null，⛔ 不编 0）
+PASS C7 缺正文文件 ⇒ text/mtime 全 null（如实读不到）
+PASS C7 没有正文文件的条目不算 unreadable（本来就没什么可读）
+PASS C7 残条（连名字都没有）⇒ bad:true 且计入 unreadable
+PASS C7 ★反证（items 不是数组 ⇒ null：面板说"条目读不到"，⛔ 不回空表装没事）
+PASS C7 limit 截断：items 只留 2 条、truncated=true、total 仍 3
+PASS C8 entries 到货：2 条、1 条正文读不到、count 与 items 同源
+PASS C8 好条目的字数/时间戳来自正文文件（bad JSON/缺文件都拿不到这两样）
+PASS C8 缺正文 ⇒ chars null（如实，⛔ 不编 0）
+PASS C8 index.json 坏 ⇒ entries=null 且 count=null（⛔ 不回空表/0 装没事）
+PASS C9 live.retrieval 原样透传（ok/failure/note/lastOkAt/ms/dimMismatch 逐字段同构，⛔ 不加工不美化）
+PASS C9 ★反证（换一份 retrieval ⇒ 与上面那份不同 ⇒ 判据咬得住）
+PASS C9 快照里没有 retrieval ⇒ live.retrieval 为 null（⛔ 不编 ok:true 骗人）
+PASS C9 ★反证（retrieval 是字符串 ⇒ 仍是 null：两种"给不出"必须同款，⛔ 不照抄一句字符串当状态）
+PASS C5 homeDir 不给 ⇒ 读 env.DSH_HOME
+PASS C5 ★反证（env 清掉 ⇒ 不再指到那份快照，落到真 ~/.dsh 或空）
+
+── D) writeRequest ──
+PASS D1 单子落到 <DSH_HOME>/dsh-anima-rag/panel-request.json，形状与返回值一致
+PASS D2 原子写不留临时文件（目录里没有 .tmp- 残留）
+PASS D2 单子恰好 5 个键（version/id/action/note/at），⛔ 不带别的字段
+PASS D3 不认识的 action ⇒ null
+PASS D3 ★ 不认识的 action 一个字都不写盘（旧单子原样）
+PASS D3 ★反证（合法 action 真会覆盖 ⇒ 上一条不是"反正不写"的侥幸）
+PASS D4 anima 目录不存在 ⇒ 自动建并落盘
+
+── E) client.js 源级 ──
+PASS E1 档位同层：computeSources 返回 [摘要, 原文, RP 记忆, 向量] ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS E2 ReadArea 有 vector 分支渲染 VectorFlow（传入 archivePath：条目要与「摘要」页签对上；传入 playthroughId：删除时告诉宿主该忘哪个周目的账本） ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS E3 红字诊断只说事实与数字（⛔ 内部词）逐字在 ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS E3b 诊断的**触发条件**在位（boundCount===0 && total>0） ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS E4 二次确认：武装表 + 重建/删除的说明 + 确认条 + 再点一次才执行 ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS E4b 二次确认的**门**在位（第一次点只武装，不提交） ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS E4c 武装表含 'ingest-now'
+PASS E4c 武装表含 'rebuild:vector'
+PASS E4c 武装表含 'delete-vector'
+PASS E4d 退役动作不在武装表里（⛔ rebuild:bm25 / delete-bm25 不许回流）
+PASS E5 排队类动作改成**后台低频跟踪**（10s 一次 / 30 分钟放手），⛔ 不再有"冻面板 60s"那套 ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS E5b ⛔ 旧的"60s 轮询 + 超时说还没执行"整块已消失（删掉的是冻面板那件事）
+PASS E5b ★反证（把那套旧写法塞回去 ⇒ 判据必须红）
+PASS E5c 排队之后立刻放开面板：横幅说"已排队…不用在这儿等，按钮可以继续用" ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS E5d 后台跟踪有一行独立提示（id=dma-vector-tracking，⛔ 不占 busy、不挡按钮） ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS E20 取到 submit 函数体（判据有对象可比）
+PASS E20 ★ 删除不走跟踪（提交后当次显示回执；跟踪只在排队那支里起）
+PASS E20 ★反证（删除那一支里起了跟踪 ⇒ 判据必须红）
+PASS E20b 删除那一支把宿主回执的文案摆出来了（已删除/删除失败 + message）
+PASS E6 端点前缀从 HOST_API_BASE 推（⛔ 不手写第二个前缀字面量） ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS E7 「参与检索」开关走 action:enable + enabled 布尔（⛔ 不另开端点、不写别的键），且只管读那一侧 ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS E10 空状态明说（info===null 不白屏：要原句指引"开会话或点立即入库"） ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS E11 绑定周目标**来源**（boundSource：session=活跃会话 / config=面板绑定） ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS E12 上次入库用 anima 写好的 reason 人话（live 优先、快照兜底，⛔ 不自己拼机器码） ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS E13 库行内 ⚠缺失 徽标（琥珀色，向量库 exists===false 时摆出来） ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS E22 ★ BM25 退役那一行在位（id=dma-vector-bm25-retired + 逐字说明"检索只剩向量、旧库文件没删"） ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS E21 ★ 读侧那一行在位（id=dma-vector-retrieval + 「最近检索」 + 现读 live.retrieval 转发给 retrievalDetailText） ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS E21b 读侧人话两态都在（成 ⇒ 最近一次成功；败 ⇒ ❌ + 故障码 + "那一轮注入的是故障说明，不是记忆"） ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS E14 提交没拿到回执 id ⇒ 不起后台跟踪（空 id 永远对不上，⛔ 不许白转） ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS E8 取到 VectorFlow 函数体（判据有对象可比）
+PASS E8 ⛔「向量」档不碰密钥（档内没有 retrieval.key）
+PASS E8 ⛔「向量」档发给宿主的请求体恰好三种（{action} / {action,playthroughId} / {action,enabled}），⛔ 没有第四种夹带
+PASS E8c ⛔ 删除的请求体只有"是哪个周目"（没有文件名清单 / 路径）
+PASS E8c ★反证（顺手递一份摘要文件名清单 ⇒ 判据必须红）
+PASS E8 ★反证（档内夹带 retrieval.key ⇒ 密钥判据必须红）
+PASS E8 ★反证（档内多一种请求体 ⇒ 计数判据必须红）
+PASS E9 面板写明入库时机 = 剧情压缩时自动入库，检索工具调用时也会入库
+PASS E15 取到 VectorFlow 函数体（判据有对象可比）
+PASS E15 ⛔「向量」档不出现内部词（候选池/隔离/闸/命中）
+PASS E15 ★反证（塞进内部词 ⇒ 判据必须红）
+PASS E16 逐条条目卡：过滤（只看本周目）+ 折叠 + 与「摘要」页签按文件名一一对应（同一份读法） ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS E17 归属徽标三色语义（绿=本周目 / 琥珀=别的周目 / 灰=未标注） ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS E18 skipped 机器码翻人话（all-done / no-index），认不出的原样透出 ★反证（挖掉关键行 ⇒ 判据必须红）
+PASS E19 回执动作名翻成按钮上的中文短名 ★反证（挖掉关键行 ⇒ 判据必须红）
+
+── F) vector-panel.js 源级 ──
+PASS F1 ⛔ 读 anima 那两张文件（快照 / 回执）走的是只读那条路（readJsonSafe）
+PASS F2 写目标恰好三份（请求单 / 回执 / 账本），**快照只读**（⛔ 绝不写 vector-info.json）
+PASS F2 ★反证（把回执改成往快照里写 ⇒ 判据必须红）
+PASS F2b ⛔ 绝不真删：全文 rmSync 只有一处，且那处删的是**请求单**（不是库）
+PASS F2b ★反证（把改名换成 rmSync(target) ⇒ 判据必须红）
+PASS F2c 归档那一步是 renameSync(plan.target, plan.dest)（改名留档）
+PASS F3 动作白名单只有一处定义（PANEL_ACTIONS 字面量恰好 1 处）
+PASS F3b 删除白名单只有一处定义（PANEL_DELETE_ACTIONS 字面量恰好 1 处），且只剩向量那一个
+PASS F3c ⛔ 活代码里没有 BM25 支线：delete-bm25 分支 / `${safe}.json` 落点 / bm25Root 读取，一个都不许回流
+PASS F3c ★反证（往活代码里塞回 `.json` 落点分支 ⇒ 判据必须红）
+PASS F4 ⛔ 源码里没有写死的盘符/用户目录（公开仓库的上架闸门会扫）
+
+── G) 端点真跑（GET /vector/state、POST /vector/action） ──
+PASS G0 宿主 handler 注册上了（路由取到）
+PASS G1 GET /vector/state ⇒ 200 ok:true（快照不存在 ⇒ info:null，⛔ 不抛不 500）
+PASS G1b 同一响应里带了 live.ingestState 槽位（现读那份文件）
+PASS G2 POST /vector/action{rebuild} ⇒ 200 queued + id 与盘上请求单一致 + 固定 hint
+PASS G3 不认识的 action ⇒ 400 UNKNOWN_ACTION（并列出白名单）
+PASS G4 POST /vector/action{enable,false} ⇒ 200 saved + config 里 chatEnabled=false
+PASS G4b ★ 读-改-写：别的字段一个都没丢（url/model/rerankModel/key/root/keepFirstRound/lastFloors 原样）
+PASS G4c ⛔ 响应与投影里绝不出现 retrieval.key 原文（只给 keySet/keyHint）
+PASS G4d GET /config 的 retrieval 投影含 chatEnabled:false（面板读它渲染开关初始态）
+PASS G5 enabled 不是布尔 ⇒ 400（⛔ 不把 "yes" 当 true）
+PASS G6 方法口径：GET /vector/action ⇒ 405、POST /vector/state ⇒ 405
+
+── H) planDelete 纯计划（不碰盘） ──
+PASS H1 相｜向量删除：目标 = <vectorRoot>/<集合名>
+PASS H1b 相｜dest = 目标 + .removed-<时间戳>（与 anima 的 stamp 口径逐字同款）
+PASS H1c 集合名归一就是 anima 那条正则（非法字符换 _，中文留着）
+PASS H1d ★ 纯计划：planDelete 不改文件系统（库目录还在原名下、一个 .removed-* 都没冒出来）
+PASS H2 ⛔ 退役动作 delete-bm25 被拒（ok:false、reason 说明它不是删除动作，⛔ 不猜一个 .json 落点出来）
+PASS H2b 只认识向量目录这一种落点：planDelete 的产物里没有第二个落点字段（target 就是 <vectorRoot>/<集合名>）
+PASS H2c 落点分支只剩向量目录一条（planDelete 里没有 delete-bm25 / `${safe}.json` 那种第二落点）
+PASS H2c ★反证（把 BM25 那种 `.json` 落点分支塞回 planDelete ⇒ 判据必须红）
+PASS H3 ⛔ 快照里没有 vectorRoot ⇒ 不出计划（reason 说明缺什么），⛔ 不猜路径
+PASS H3b ⛔ 快照里没有集合名 ⇒ 不出计划
+PASS H3c ⛔ 不是删除动作 ⇒ 不出计划（⛔ 入库/重建绝不该走到这条路上）
+PASS H3d ⛔ 名单只留纯文件名（去重 + 丢掉带斜杠/`..`/非字符串的），forgetCount 只数真命中的
+
+── I) deleteNow 当场执行（改名留档 + 忘账本 + 回执） ──
+PASS I1 deleteNow ⇒ ok/deleted + 回执（ok:true）
+PASS I1b 回执键集合**逐字同构** anima 那份（version/id/action/ok/message/counts/at，一个不多一个不少）
+PASS I1c 文案照 anima 那两句（已归档为 <归档名>（没删）… 忘掉账本 2 条 ⇒ 下次入库会重新长出来）
+PASS I1d counts.forgotten = 2（只数本周目真命中的那两条）
+PASS I2 ⛔ 绝不真删：目标已不在原名下，但 `.removed-<时间戳>` 里躺着（改名留档）
+PASS I2b ★ 归档里的正文一个字节都没变（读得回原来那份）
+PASS I3 ★ 账本只忘本会话周目的那两条
+PASS I3b ⛔ 别的周目的条目一条不少（宁可不错忘）+ 导入清单也在
+PASS I3c 账本形状照 anima save()（version/updatedAt/entries，updatedAt 刷新了）
+PASS I4 回执写进 panel-result.json（与返回的那份同构）
+PASS I5 ⛔ 宿主绝不写 vector-info.json（快照是 anima 的；写它就是两份真相）
+PASS I5b readVectorState.deletedAfterInfo=true（回执是删除且比快照新 ⇒ 面板标过期）
+PASS I5c ★反证：把快照的 at 改到回执之后（anima 追上来了）⇒ deletedAfterInfo 必须为 false
+PASS I6 目标不存在 ⇒ ok:true（⛔ 不报失败）+ 文案是「本来就不存在（顺手忘掉账本 2 条）」
+PASS I6b ★ 不在也**照样忘账本**（否则下次入库会以 all-done 跳过，删掉的东西永远回不来）
+PASS I6c 一个 .removed-* 都没冒出来（本来就没东西可归档）
+PASS I7 这个周目没有摘要（清单为空）⇒ 文案说「忘掉账本 0 条」（⛔ 不编一个数）
+PASS I7b 向量落点是一个**目录**：原目录没了、`.removed-<时间戳>` 在（BM25 那条文件级落点已随退役消失）
+PASS I7c ★ 清单为空 ⇒ 账本一个字节都没动（别的周目一条不少）
+PASS I7c ★反证（"清单为空就 clear()"那种写法 ⇒ 整本被清掉 ⇒ 判据必红）
+PASS I8 没说是哪个周目 ⇒ 删除照做（归档成功），但**一条账本都没忘**
+PASS I8b ★ 如实播报为什么没忘（"没忘账本："那句必须出现）
+PASS I8c 账本里那两条原封不动（⛔ 宁可不错忘别的周目）
+PASS I8d summaries/index.json 读不到 ⇒ 一条都不忘 + 播报里带原因（含 index.json）
+PASS I9 ★ 回执键集合与 anima 的 makePanelResult 逐字一致（从它源码里抄的键名，⛔ 没 import）
+PASS I9b ★反证（本仓若漏一个键 —— 比如 counts —— 就与 anima 不一致）
+PASS I9c 版本号也是 1（anima 那份写的是 version: 1）
+PASS I9d 文案与 anima executePanelAction 里那两句同款（本来就不存在 / 已归档为…（没删））
+
+── J) POST /vector/action{delete-*} 真跑（当次回执 / 消费旧单子） ──
+PASS J1 POST delete-vector ⇒ 200 ok:true + deleted:true + 回执当次回来（message/counts/at 齐）
+PASS J1b ⛔ 响应里**没有** queued（点了就删，不再"排队等下一轮"）
+PASS J1c ⛔ 这次动作**没有**写 panel-request.json（删除不走请求单那条路）
+PASS J1d 磁盘上真改名了：<集合> 没了、`.removed-<时间戳>` 在
+PASS J1e 账本只少本周目那两条（别的周目仍在）
+PASS J1f ⛔ 宿主没写快照（vector-info.json 一个字节都没变）
+PASS J1g GET /vector/state 如实标"快照是删之前的"（deletedAfterInfo:true）+ 现算的库已不在
+PASS J2 退役动作 delete-bm25 ⇒ 400 UNKNOWN_ACTION（白名单不再认它，⛔ 不静默照做）
+PASS J2b 被拒之后一个文件都没被动：旧 BM25 库文件还在、没有 .removed-* 冒出来
+PASS J2c 删除（同名请求单是 rebuild）⇒ 那张单子**原封不动**（⛔ 别的动作一根汗毛都不动）
+PASS J3 ★ 同名（delete-vector）旧请求单被消费掉（文件不在了）
+PASS J3b 这次目标本来就不存在 ⇒ 文案是「本来就不存在」（⛔ 不报失败、照样是 ok）
+PASS J4 快照读不到 ⇒ 可读错误（VECTOR_INFO_UNAVAILABLE），⛔ 不当成功、⛔ 不猜路径
+PASS J5 「立即入库」照旧排队（queued:true + 请求单落盘）—— 只有删除改了判
+
+── 199 通过 / 0 失败 ──
+  ✔ _selftest-vector-panel.mjs
+[PASS] ① 基线：两条都建进去了，各自的关键词都查得到（真 vectra 库）
+[PASS] ② 删 A（`deleteItem(id)` + 删它的元数据文件）⇒ 索引与磁盘都不再有它，B 毫发无伤
+[PASS] ③ 落盘态同样生效（**新实例**重新读盘后，A 仍不存在、B 仍可查）
+[PASS] ④ ★★反证（最要紧）：拿一个**认不出的 id** 去删 ⇒ 必须「什么都没删」、而且**不报错**
+[PASS] ⑤ ★反证：拿**元数据文件名**（而不是文档 id）去删 ⇒ 同样静默 no-op（这正是回收里"两步必须都给 id"的理由）
+
+== 总结：5 通过 / 0 失败 ==
+  ✔ anima-rag/_selftest-anima-delete-mechanics.mjs
+PASS ⓪ DSH_HOME 本身就是 .dsh ⇒ 只拼一层（不再出现 \.dsh\.dsh\）
+PASS ⓪ ★反证：旧写法确实会多一层 .dsh（这就是真机上读到空配置的原因）
+PASS ⓪ 没设 DSH_HOME ⇒ 退到 <home>/.dsh/…
+PASS ⓪ 空白 DSH_HOME ⇒ 当没设，也不拼出 ` .dsh` 这种怪路径
+PASS ⓪ 显式 override 优先且原样使用
+PASS ⓪ override 为空串 ⇒ 回落环境推导
+PASS ② 相②：记忆库无值 ⇒ 回落 DEFAULTS（embed/rerank 原样）
+PASS ① 相①：embed.url/model 用记忆库值（尾斜杠去掉）
+PASS ① 相①：重排地址 = 记忆库 url 去尾斜杠 + /rerank（不写死域名）
+PASS ① 相①：重排模型用记忆库值
+PASS ① 相①：key 覆盖 embed 与 rerank 两边（面板只收一个密钥框）
+PASS ① 相①：记忆库值压过插件自身配置里的旧值；空字段（rerankModel=""）不覆盖
+PASS ①b 两个模型各一套 ⇒ embed 与 rerank **落在不同服务商**上（rerankUrl 单独生效）
+PASS ①b 两个密钥各用各的（向量用 key、重排用 rerankKey）
+PASS ①b ★反证：改 url **不覆盖**显式填的 rerankUrl（旧的无条件推导已撤）
+PASS ①b 重排地址已以 /rerank 结尾 ⇒ ⛔ 不拼成 /rerank/rerank
+PASS ①b 重排地址尾斜杠归一后再拼 /rerank
+PASS ①b 只填 rerankKey ⇒ 只给重排用（向量那把仍空）
+PASS ①b 兼容：rerankUrl/rerankKey 显式空 ⇒ 回到「url + /rerank + 同一把 key」
+PASS ③ ★反证：环境变量里有 key 也**一点不读**（embed/rerank 都还是空）
+PASS ③ ★反证：不再产生"过渡态"那类告警（那条口径已作废）
+PASS ③ 记忆库有 key ⇒ embed 与 rerank 都拿到它（同 key 口径）
+PASS ③ 兼容：一参调用 mergeConfig 不抛且形状完整
+PASS ② ★反证：lib/ 不出现 "agent.cordis.yml"（anima 不读任何预设文件，grep 零命中）
+PASS ② ★反证：lib/ 不出现 ".agent-presets"（anima 不读任何预设文件，grep 零命中）
+PASS ② ★反证：lib/ 不出现 "preset"（anima 不读任何预设文件，grep 零命中）
+PASS ③ ★反证：`process.env.ANIMA_RAG_*` 在源码里**零命中**（注释不算，先剥注释再查）
+PASS ④ 静态：apply() 里 mergeConfig → applyRetrievalConfig 的次序在位
+PASS ④ 静态：记忆库 retrieval 段读取器在位（按 config.json 的 mtime 缓存）
+PASS ④ 静态：**不再**给 mergeConfig 传 env（没有 mtHasKey 那种"配置有 key 才不看 env"的分支）
+
+★ anima × 记忆库配置：全过（30 条）
+  ✔ anima-rag/_selftest-anima-retrieval-config.mjs
+[PASS] E1 空命中 / 畸形输入 ⇒ 返回空串（本轮不注入这一格，且绝不抛）
+[PASS] E2 形状：<memoryEcho> 壳 + 前言逐字 + 每条一行 + </memoryEcho>
+[PASS] E3 楼层区间：`sum_mt-0100-0129-1` ⇒ [楼 0100-0129]；认不出 ⇒ 如实写切片名（⛔ 不编楼号）
+[PASS] E4 is_echo（靠 life 续命的那条）⇒ 行尾标「（回响续命）」；自然召回的不标
+[PASS] E5 预算：topK 截条、perHitChars 截字（带标注）、maxChars 是硬上限、⛔ 任何路径都不超预算
+[PASS] E6 顺序 = 传入顺序（⛔ 不重排），且是纯函数：不修改入参、同入同出
+[PASS] E7 ★★ 反证：fts5 那套命中（{floor, body, docKey, hitCount}）喂进来 ⇒ 一条都用不上
+[PASS] W1 接线：回响格由 `buildEchoSlot(res?.merged_chat_results, …)` 建（喂的是语义命中）
+[PASS] W2 接线：由 `inject.echo` 驱动，enabled:false ⇒ 整格不出
+[PASS] W3 接线：回响格排在**最前面**（与改前 dma:echo@54 在 anima:memory@55 之前同序）
+[PASS] W4 ★反证：把喂进去的数据换成 fts5 那一套（floors/body）⇒ W1 的判据必红
+
+── 11 通过 / 0 失败 ──
+  ✔ anima-rag/_selftest-echo-slot.mjs
+PASS K0 三个要看的函数都在（改了名字这条会红，提醒同步本台子）
+PASS K1 ★ 先 hasPendingIngestWork() 再置 running（顺序反了就等于没改）
+PASS K1b ★ 反证：把预判那行挖掉 ⇒ 判据必须红
+PASS K1c ★ 反证（挖掉后）：同一句判据红
+PASS K2 ★ 预判里没有 writeIngestState（写了就又每轮闪一次）
+PASS K2b ★ 预判只做 statSync + 比较闸门（不许读 index.json 正文干重活）
+PASS K3 ★ `resolvePlaythroughForSession(` 在 sessionSummariesDir 里只出现 1 次（一份实现、读写两侧共用）
+PASS K3b ★ autoIngestOnce 与 hasPendingIngestWork **都**用 sessionSummariesDir（判据同源）
+PASS K3c ★★ 会话优先、**不给兜底**：resolvePlaythroughForSession 的第 3 参是空串
+PASS K3d ★★ 反证：把兜底换回 boundPlaythroughId() ⇒ 同一句判据必红
+PASS K3e ★ 旧面板绑定兜底那两样（ingestDirFor / boundPlaythroughId）都已不存在（活代码里零命中）
+PASS K4 ★ 维护的置位在 kickAutoIngest 里，且排在闸门**之前**（它不该由"有没有活"决定）
+PASS K4b ★ 闸门那一支**没有**"本进程第一脚"例外（有它 = 每轮都启动 = 提示每轮弹）
+PASS K4c ★ 维护那一支**不写** ingest-state（写了提示就会因为"维护"弹出来）
+PASS K4d ★ autoIngestOnce 里不再有"每进程一次维护"那一支（挪走了，⛔ 别挪回来）
+PASS K4e ★★ 反证：旧写法下「未归周目 / 还没 index.json」⇒ 置位永远走不到 ⇒ 每轮都被判成"该启动"（事故复现）
+PASS K5 ★ 全文件 `running: true` 恰好 3 处（kick / autoIngestOnce / 面板动作）
+PASS K5b ★ 反证：autoIngestOnce 那一处必须在"有活"之后（⛔ 不许挪到函数开头）
+PASS K5c ★ 第③处（面板动作的状态写入）落在 runPanelRequestIfAny 里，⛔ 不在 kick 的早退门之前
+PASS K6 ★ autoIngestOnce 里用 `resolved.` 就必须自己声明 `resolved`（⛔ 不许引用作用域外的同名变量）
+PASS K6b ★ 状态写入用的是**就地重算**的 `resolvedNow.source`（与 sessionSummariesDir 同一份解析）
+PASS K6c ★★ 反证：把旧写法 `source: resolved.source` 重放回函数体 ⇒ K6 那句判据必红
+
+── 22 通过 / 0 失败 ──
+  ✔ anima-rag/_selftest-ingest-kick.mjs
+[PASS] ① sliceKeyOf 归一：带 .md / 不带 .md / .txt / .json 都落到同一个 key；非前缀与空 ⇒ null
+[PASS] ①b entryKeyOf：归档条目文件名 ⇒ key（扩展名不参与比较）
+[PASS] ② allowedKeysFromEntries：正常条目进白名单；import-* 必须被剔掉（列着但不该入）
+[PASS] ③ ★反证：同源但格式不同（带/不带 .md）的切片都要判"非孤儿" —— 这就是改名的对照面
+[PASS] ③b 改名孤儿要判出来（旧名在新 index.json 里已不存在）
+[PASS] ③c import 清单：文件还在、白名单里也没它 ⇒ 判孤儿（与 ingest 侧同一判据）
+[PASS] ③d ★反证：不是 sum_ 前缀的切片一律"不动"并计入 skipped（来源不明，绝不猜着删）
+[PASS] ④ ★反证（最要紧的一条）：白名单为空 ⇒ decideReconcile 必须拒绝，⛔ 绝不许"把库清光"
+[PASS] ⑤ planVectorPrune：只摘指定 id，vectra 的 version / metadata_config 等字段原样保留
+[PASS] ⑤b metadataFileNamesOf：优先用 metadataFile，缺了退回 `<id>.json`
+  (真机：items=12 · 白名单内留 10 · 不动 2 ⇒ probe_2、probe_1)
+[PASS] ⑥ ★真机锚：真 `vectors/dsh-memory/index.json` ⇒ 每条都有归宿、白名单内的不误判、非前缀不动、空白名单拒删
+[SKIP] ⑥b 真机交叉重放：本机没有那两个真文件（换机器/换周目就会这样）—— ⛔ 不算通过，只是测不了
+
+== 总结：11 通过 / 0 失败 ==
+  ✔ anima-rag/_selftest-orphan-reconcile.mjs
+PASS ① 动作白名单正好这三个（逐字；`delete-bm25` 已随 BM25 退役删）
+PASS ① 每个动作都有中文短名（面板与日志同一份措辞）
+PASS ① `rebuild` 的短名是「重建（向量）」（改前写着"向量 + BM25"）
+PASS ① 不认识的动作用 `actionLabel` 如实回显（⛔ 不编）
+PASS ① ★反证：面板若还发 `delete-bm25`（旧版面板）⇒ 一律按未知动作拒绝
+PASS ① 三个文件名与"归档前缀"逐字冻结
+PASS ② isKnownAction 只认白名单
+PASS ② 正常单子通过（连 note 一起）
+PASS ② ★ 未知动作被拒（⛔ 不许"看不懂就照做"）
+PASS ② 缺 id 被拒
+PASS ② 非对象/数组/字符串被拒（不抛）
+PASS ② note 不是字符串 ⇒ 当空串（不抛）
+PASS ③ 造出来的请求单一定过校验（形状自洽）
+PASS ③ 回执带 id/action/ok/message/time（面板靠 id 配对）
+PASS ④a ★ 隔离清空候选池 ⇒ 第一句就说破（含"全部"与那个周目 id）
+PASS ④b 部分隔离 ⇒ 报"排除了 5/51"
+PASS ④c 被闸拦下 ⇒ 说清拦的原因码
+PASS ④d 库不存在 ⇒ 点出向量库（★ 改前还并列一句"BM25 库不存在"，已随退役删）
+PASS ④d2 ★反证：退役后不许再冒出任何 BM25 说法
+PASS ④e 库在、隔离没拦、真没命中 ⇒ 也只有一句（不编原因）
+PASS ④f 什么都没问题（有命中）⇒ 一个字都不说
+PASS ④g 最多 3 句（别把提示词/工具结果淹了）
+PASS ④h 传垃圾不抛
+PASS ④i ★ 反证：挖掉"隔离清空"那条分支 ⇒ 同一句判据变红
+PASS ④j ★ 反证：去掉注释后 `panel-request.js` 里一个字都不该再提 BM25（活代码里没有残留）
+PASS ⑤ 骨架字段齐（面板按这份读，少一个就白屏）
+PASS ⑤ ★反证：退役的 `bm25` 字段不许再出现（⛔ 不留恒空的死字段）
+PASS ⑤ dataRoots 两个根都在（面板靠它自己现算易变项）
+PASS ⑤ 全空调用也不抛，且两根是空串（⛔ 不编路径）
+
+── 29 通过 / 0 失败 ──
+  ✔ anima-rag/_selftest-panel-request.mjs
+[PASS] ① ptTagOf / tagsOf / sliceIndexOf：形状与畸形输入都不抛
+[PASS] ② ★核心判据：只放行带 pt:<绑定周目> 的切片，其余全部进 deny
+[PASS] ③ ★反证：没标签的切片**必须**被排除 —— 「跨周目延续」不是默认，是以后单说的事
+[PASS] ④ fail-closed：拿不到绑定周目 / 索引解析不了 ⇒ 一律 blocked（不是"那就不过滤"）
+[PASS] ⑤ 摘要一行：口径统一（日志与状态端点共用）
+[PASS] ⑥ ★真机锚：真库 12 条（BOUND 是夹具 id，十二条都不带它的标签）⇒ deny = 全部 12 条，且与「没有 pt: 标签」的集合逐条相等
+[PASS] ⑦★ 隔离与入库目标都**会话优先、无兜底**（认不出 ⇒ 当新会话），且兜底参数就是空串
+
+== 总结：7 通过 / 0 失败 ==
+  ✔ anima-rag/_selftest-playthrough-isolate.mjs
+[PASS] ① a. 嵌入超时 ⇒ 注入那一格**有那句如实说明**（带故障码人话/次数/端点/模型/"不是记忆"）
+[PASS] ① b. ★反证：把那句说明从返回文本里挖掉 ⇒ ①a 必须红
+[PASS] ① c. 普通错误（不是超时）同样不静默：说明里带得出错原因
+[PASS] ① d. 有命中时**没有**故障说明：注入的是 <memoryEcho> + <recalledMemories> 真内容
+[Anima Debug] Embedding Request -> URL: http://127.0.0.1:53011/v1/embeddings, Model: fake
+[Anima RAG] ❌ 向量 API 请求超时无响应 (已主动掐断)
+[Anima RAG] ↻ 嵌入超时 ⇒ 重试 2/2（单次上限 300ms）
+[Anima RAG] ❌ 向量 API 请求超时无响应 (已主动掐断)
+Error: 向量 API 请求超时无响应（单次上限 300ms）
+    at embedOnce (file:///D:/apps/deepseek/dsh-anima-rag/lib/engine.js:498:27)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async getEmbedding (file:///D:/apps/deepseek/dsh-anima-rag/lib/engine.js:570:24)
+    at async Object.query (file:///D:/apps/deepseek/dsh-anima-rag/lib/engine.js:1444:26)
+    at async file:///D:/apps/deepseek/dsh-anima-rag/_selftest-read-failure.mjs:236:7
+    at async check (file:///D:/apps/deepseek/dsh-anima-rag/_selftest-read-failure.mjs:45:9)
+    at async file:///D:/apps/deepseek/dsh-anima-rag/_selftest-read-failure.mjs:224:1 {
+  code: 'TIMEOUT',
+  elapsedMs: 620,
+  endpoint: 'http://127.0.0.1:53011/v1/embeddings',
+  model: 'fake',
+  attempts: 2
+}
+[PASS] ② a. 端点永不响应 ⇒ code=TIMEOUT、试满配置的次数、总耗时**不超预算**（不再有"跑完没人要"）
+[Anima Debug] Embedding Request -> URL: http://127.0.0.1:53016/v1/embeddings, Model: fake
+[Anima RAG] ❌ 向量 API 请求超时无响应 (已主动掐断)
+[Anima RAG] ↻ 嵌入超时 ⇒ 重试 2/2（单次上限 400ms）
+Error: 向量 API 请求超时无响应（单次上限 400ms）
+    at embedOnce (file:///D:/apps/deepseek/dsh-anima-rag/lib/engine.js:498:27)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async getEmbedding (file:///D:/apps/deepseek/dsh-anima-rag/lib/engine.js:570:24)
+    at async Object.query (file:///D:/apps/deepseek/dsh-anima-rag/lib/engine.js:1444:26)
+    at async file:///D:/apps/deepseek/dsh-anima-rag/_selftest-read-failure.mjs:264:7
+    at async check (file:///D:/apps/deepseek/dsh-anima-rag/_selftest-read-failure.mjs:45:9)
+    at async file:///D:/apps/deepseek/dsh-anima-rag/_selftest-read-failure.mjs:256:1 {
+  code: 'TIMEOUT',
+  elapsedMs: 416,
+  endpoint: 'http://127.0.0.1:53016/v1/embeddings',
+  model: 'fake',
+  attempts: 1
+}
+[PASS] ② b. 截止时刻比单次上限更紧时 ⇒ 只试一次就收场（预算说了算）
+[Anima Debug] Embedding Request -> URL: http://127.0.0.1:53019/v1/embeddings, Model: fake
+[Anima Debug] 📂 Loading Index: probe (Create: false)
+[Anima RAG] 🛑 查询跳过不存在的库: probe
+[Anima Echo] ⚠️ 跳过回响 (无 SessionID 或 结果为空)
+[Anima Debug] 📂 Loading Index: probe (Create: false)
+[Anima RAG] 🛑 查询跳过不存在的库: probe
+[PASS] ② c. 端点正常 ⇒ 不抛错（这条是"嵌入党到底通不通"的机器化版本）
+Error: API Key missing
+    at getEmbedding (file:///D:/apps/deepseek/dsh-anima-rag/lib/engine.js:540:23)
+    at Object.query (file:///D:/apps/deepseek/dsh-anima-rag/lib/engine.js:1444:32)
+    at file:///D:/apps/deepseek/dsh-anima-rag/_selftest-read-failure.mjs:306:18
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async check (file:///D:/apps/deepseek/dsh-anima-rag/_selftest-read-failure.mjs:45:9)
+    at async file:///D:/apps/deepseek/dsh-anima-rag/_selftest-read-failure.mjs:301:1 {
+  code: 'NO_KEY'
+}
+[PASS] ② d. 没配 key ⇒ code=NO_KEY（一次网络都不打，也不该说成"超时"）
+[PASS] ③ a. retrieve 的 catch 返回的是 `failureNote(...)`（不是改前那个空串文本）
+[PASS] ③ b. 装配钩子的**超时那一支**也写说明（⛔ 不是裸 `return out`）
+[PASS] ③ c. ★反证：把超时那一支改回裸 `return out` ⇒ ③b 必须红
+[PASS] ③ d. ★★ 真机事故反证：`retrieve` 体内不许引用作用域外的 `sessionId`（2026-09-26 那个 ReferenceError）
+[PASS] ③ e. 拿不到内容时清掉本会话旧文本（⛔ 不许把上一轮的记忆当这一轮注入）
+[PASS] ③ f. 引擎的失败分类：底层有自己的码，外层那圈包装**原样带出来**（originCode）
+
+── 14 通过 / 0 失败 ──
+  ✔ anima-rag/_selftest-read-failure.mjs
+PASS ① 版本是正整数
+PASS ① playthroughIdOf：优先 id 字段
+PASS ① playthroughIdOf：没有 id ⇒ 从 path 倒数第二段取（`<角色>/<周目>/timeline.json`）
+PASS ① playthroughIdOf：Windows 反斜杠也认
+PASS ① ★反证：路径段不够/空/非字符串 ⇒ 空串（不猜）
+PASS ① rootSessionIdOf：取 ext.pmpDshTavern.rootSessionId；缺了 ⇒ 空串
+PASS ① sessionIdsOfTimeline：head ∪ 各 variants（坏条目跳过、空串不进来）
+PASS ① ★反证：timeline 畸形（null/数组/无字段）⇒ 空集且不抛
+PASS ② 索引：两个周目各自的会话都进来了
+PASS ② 根会话即使不在 timeline 里也要进索引（靠 rootSessionId 兜）
+PASS ② ★冲突：同会话属两周目 ⇒ catalog 先到者胜 + conflicts 里如实列出
+PASS ② ★反证：行缺失/畸形 ⇒ 不抛、只少收（不编造映射）
+PASS ②c ★ variant 行在前 ⇒ 判给**它是根**的那个周目（与行序无关）
+PASS ②c ★ root 行在前 ⇒ 判给**它是根**的那个周目（与行序无关）
+PASS ②c ★ conflicts 仍如实列出（⛔ 不静默丢）
+PASS ②c ★ 反证：旧规则在这份形状上判给了"只引用它"的那个（错的）
+PASS ②b characterIdOf / playthroughDirOf：优先 catalog 的显式字段与 path 前两段
+PASS ②b ★反证：path 缺 ⇒ 用字段兜出 `<角色>/<周目>`；两者都给不出 ⇒ 空串（不猜）
+PASS ②b byId：周目 ⇒ { characterId, dir }（写侧拿它拼目录）
+PASS ③ 会话命中 ⇒ 用它，source=session
+PASS ③ ★反证（关键）：会话**不在**索引里 ⇒ 回落面板绑定值，source=config（⛔ 不许变成"那就不过滤"）
+PASS ③ ★反证：会话为空 / 索引为空 / 绑定值也空 ⇒ source=none（调用方据此 fail-closed）
+PASS ④ ★真机锚：catalog 里每条周目都能解析出 id（id 字段或 path 段）
+PASS ④ ★真机锚：每个周目的 rootSessionId 映射回**它自己**（不是别人、也不是空）
+PASS ④ ★真机锚：拿真根会话解析 ⇒ source=session，且不是面板那个兜底值
+  · 真机索引：14 个周目 / 58 条会话 / 冲突 8
+
+── 25 通过 / 0 失败 ──
+  ✔ anima-rag/_selftest-session-playthrough.mjs
+
+=== 73 passed / 0 failed ===

@@ -15,9 +15,10 @@
  *
  * ⛔ 只在 tmp 目录里折腾，碰不到任何真实集合。
  */
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createRequire } from 'node:module'
 import assert from 'node:assert/strict'
 import { createBm25 } from './lib/bm25.js'
 
@@ -39,6 +40,18 @@ if (depsBase === null) {
   process.exit(0)
 }
 
+let LocalIndex = null
+try {
+  const mod = createRequire(depsBase)('vectra')
+  LocalIndex = mod.LocalIndex || mod.default?.LocalIndex || mod.default
+} catch { LocalIndex = null }
+
+if (typeof LocalIndex !== 'function') {
+  console.log('[SKIP] 本机解析不到 vectra（换机器就会这样，本仓不自带 node_modules）—— ⛔ 这不算通过，只是**测不了**；')
+  console.log('       要真跑它，请把 ST 侧 anima-rag 的 node_modules 装上，或改 DEPS_BASE。')
+  process.exit(0)
+}
+
 let pass = 0
 const fails = []
 async function check(name, fn) {
@@ -46,64 +59,98 @@ async function check(name, fn) {
   catch (e) { fails.push(name); console.log('[FAIL] ' + name + ' :: ' + String(e?.message ?? e)) }
 }
 
-const quiet = { log() {}, warn() {}, error() {} }
-const root = mkdtempSync(join(tmpdir(), 'anima-del-'))   // ⛔ 必须在 mk 之前声明（否则撞 TDZ）
-const mk = () => createBm25({ bm25Root: root, persist: true, logger: quiet, depsBase })
+const root = mkdtempSync(join(tmpdir(), 'anima-del-'))
 const COL = 'delme'
-const file = join(root, `${COL}.json`)
-const readState = () => JSON.parse(readFileSync(file, 'utf8'))
+const vectorDir = join(root, COL)
+const indexFile = join(vectorDir, 'index.json')
+const mk = async () => {
+  const idx = new LocalIndex(vectorDir)
+  if (!(await idx.isIndexCreated())) {
+    // 与 `engine.js` 的 getIndex() 同一份建库参数（⛔ 别改：改了测的就不是线上那个库了）
+    await idx.createIndex({ version: 1, metadata_config: { indexed: ['tags', 'index', 'batch_id'] } })
+  }
+  return idx
+}
+const listItems = async (idx) => await idx.listItems()
+const diskIndex = () => JSON.parse(readFileSync(indexFile, 'utf8'))
+const metaFiles = () => readdirSync(vectorDir).filter((n) => n.endsWith('.json') && n !== 'index.json')
 
-const DOC_A = { id: 'aaaa1111-2222-3333-4444-555566667777', index: 'sum_x.md', text: '独角兽在雪原上奔跑，鬃毛结着冰霜。' }
-const DOC_B = { id: 'bbbb8888-9999-0000-1111-222233334444', index: 'sum_x-1.md', text: '地下室里有三只猫，其中一只是黑猫。' }
+const VEC = (n) => { const v = new Array(8).fill(0); v[n] = 1; return v }   // 8 维、正交、必然算得出分
+const META_A = { text: '独角兽在雪原上奔跑，鬃毛结着冰霜。', tags: ['A'], timestamp: 1, index: 'sum_x.md', batch_id: -1 }
+const META_B = { text: '地下室里有三只猫，其中一只是黑猫。', tags: ['B'], timestamp: 2, index: 'sum_x-1.md', batch_id: -1 }
 
-const search = (bm, q) => bm.searchPipeline(q, [{ dbId: COL, dictionary: [] }], 5)
+/** 一次插入 = `engine.insert()` 里那一步（插入向量 item；元数据文件由 vectra 自己落盘）。 */
+const put = async (idx, meta, vec) => await idx.insertItem({ vector: vec, metadata: meta })
+
+/** 一次删除 = 孤儿回收里那两步（`planVectorPrune` 摘 items → `metadataFileNamesOf` 删文件）。 */
+const drop = async (idx, item) => {
+  await idx.deleteItem(item.id)
+  const f = item.metadataFile
+  if (f && existsSync(join(vectorDir, f))) rmSync(join(vectorDir, f), { force: true })
+}
+
+const A_ID = 'aaaa1111-2222-3333-4444-555566667777'
+const B_ID = 'bbbb8888-9999-0000-1111-222233334444'
+let itemsA = null
+let itemsB = null
 
 try {
-  const bm = mk()
-  await bm.buildIndexBatch(COL, [DOC_A, DOC_B], { dictionary: [] })
-
-  await check('① 基线：两条都建进去了，各自的关键词都搜得到', async () => {
-    const st = readState()
-    assert.equal(st.documentCount, 2, 'documentCount 应为 2')
-    assert.equal(Object.values(st.storedFields).filter((v) => v.id === DOC_A.id).length, 1, 'A 在库里')
-    const ra = await search(bm, '独角兽')
-    const rb = await search(bm, '地下室')
-    assert.ok(ra.length >= 1 && ra.some((x) => x.id === DOC_A.id), 'A 应被搜到')
-    assert.ok(rb.length >= 1 && rb.some((x) => x.id === DOC_B.id), 'B 应被搜到')
+  await check('① 基线：两条都建进去了，各自的关键词都查得到（真 vectra 库）', async () => {
+    const idx = await mk()
+    itemsA = await put(idx, META_A, VEC(0))
+    itemsB = await put(idx, META_B, VEC(1))
+    // 真机实测：`insertItem` 返回的 id 是 **UUID**（不是我们自己编的），落盘在 items[].id 里
+    assert.equal(typeof itemsA.id, 'string')
+    assert.match(itemsA.id, /^[0-9a-f-]{36}$/i, 'id 应是 UUID：' + itemsA.id)
+    assert.equal(typeof itemsA.metadataFile, 'string')
+    assert.ok(itemsA.metadataFile !== '', 'vectra 给每条落一个 per-item 元数据文件')
+    assert.equal((await listItems(idx)).length, 2)
+    assert.equal(diskIndex().items.length, 2, 'index.json 里也该是 2 条')
+    assert.equal(metaFiles().length, 2, '磁盘上应有 2 个 per-item 元数据文件：' + JSON.stringify(metaFiles()))
+    const hit = await idx.queryItems(VEC(0), '', 5)
+    assert.ok(hit.some((h) => h.item.id === itemsA.id), 'A 应被查到')
   })
 
-  await check('② 按**文档 id** 删 ⇒ 内存态就不再返回它（同实例再搜）', async () => {
-    await bm.deleteDocuments(COL, [DOC_A.id])
-    const st = readState()
-    assert.equal(st.documentCount, 1, 'documentCount 应降到 1')
-    assert.equal(Object.values(st.storedFields).some((v) => v.id === DOC_A.id), false, 'A 不该还在 storedFields 里')
-    const ra = await search(bm, '独角兽')
-    assert.equal(ra.some((x) => x.id === DOC_A.id), false, '删完还搜得到 A ⇒ 删除没生效')
-    const rb = await search(bm, '地下室')
-    assert.ok(rb.some((x) => x.id === DOC_B.id), '⛔ 删 A 不许连坐 B')
+  await check('② 删 A（`deleteItem(id)` + 删它的元数据文件）⇒ 索引与磁盘都不再有它，B 毫发无伤', async () => {
+    const idx = await mk()
+    await drop(idx, itemsA)
+    const items = await listItems(idx)
+    assert.equal(items.length, 1, '应只剩 1 条')
+    assert.equal(items.some((it) => it.id === itemsA.id), false, 'A 不该还在 listItems 里')
+    assert.equal(diskIndex().items.some((it) => it.id === itemsA.id), false, 'A 不该还在 index.json 里')
+    assert.equal(existsSync(join(vectorDir, itemsA.metadataFile)), false, 'A 的元数据文件该被删掉')
+    assert.equal(items.some((it) => it.id === itemsB.id), true, '⛔ 删 A 不许连坐 B')
+    assert.equal(existsSync(join(vectorDir, itemsB.metadataFile)), true, 'B 的元数据文件必须还在')
+    const hit = await idx.queryItems(VEC(0), '', 5)
+    assert.equal(hit.some((h) => h.item.id === itemsA.id), false, '删完还查得到 A ⇒ 删除没生效')
   })
 
-  await check('③ 落盘态同样生效（**新实例**从磁盘加载后再搜）', async () => {
-    const fresh = mk()
-    const ra = await search(fresh, '独角兽')
-    assert.equal(ra.some((x) => x.id === DOC_A.id), false, '新实例仍搜到 A ⇒ 落盘没生效')
-    const rb = await search(fresh, '地下室')
-    assert.ok(rb.some((x) => x.id === DOC_B.id), 'B 必须还在')
+  await check('③ 落盘态同样生效（**新实例**重新读盘后，A 仍不存在、B 仍可查）', async () => {
+    const fresh = await mk()
+    const items = await listItems(fresh)
+    assert.equal(items.some((it) => it.id === itemsA.id), false, '新实例仍见到 A ⇒ 落盘没生效')
+    const hit = await fresh.queryItems(VEC(1), '', 5)
+    assert.ok(hit.some((h) => h.item.id === itemsB.id), 'B 必须还能查到')
   })
 
-  await check('④ ★★反证（最要紧）：拿 storedFields 的**内部键**当 id 交上去 ⇒ 必须「什么都没删」', async () => {
-    const fresh = mk()
-    const before = readState()
-    const keys = Object.keys(before.storedFields)
-    assert.ok(keys.length > 0)
-    // 内部键就是 "0"/"1" 这类编号（真机实测也是这个形状）——**不是**文档 id
-    const anyKey = keys[0]
-    await fresh.deleteDocuments(COL, [anyKey])
-    const after = readState()
-    assert.equal(after.documentCount, before.documentCount, '⛔ 拿键当 id 竟然删掉了东西 —— 那说明键恰好等于 id，本反证的前提要重核')
-    assert.equal(after.storedFields[anyKey]?.index, before.storedFields[anyKey]?.index, '被点名的文档必须原样还在')
-    const rb = await fresh.searchPipeline('地下室', [{ dbId: COL, dictionary: [] }], 5)
-    assert.ok(rb.some((x) => x.id === DOC_B.id), 'B 必须还在 —— 键≠id ⇒ has() 恒 false ⇒ 静默不删')
+  await check('④ ★★反证（最要紧）：拿一个**认不出的 id** 去删 ⇒ 必须「什么都没删」、而且**不报错**', async () => {
+    const fresh = await mk()
+    itemsB = (await listItems(fresh))[0]      // 现在库里只剩 B
+    const before = diskIndex()
+    // ⛔ vectra 的 deleteItem 对找不到的 id 是**静默 no-op**（源码里就是 findIndex 找不到就什么都不做）
+    //    ⇒ 真机上"删除看着跑完了"完全可能一条没删 —— 所以删完**必须回读**（孤儿回收就是靠回读对账的）。
+    await fresh.deleteItem('not-a-real-id-0000-0000-000000000000')
+    assert.equal((await listItems(fresh)).length, before.items.length, '⛔ 认不出的 id 竟然删掉了东西 —— 本反证的前提要重核')
+    assert.equal(diskIndex().items.some((it) => it.id === itemsB.id), true, '被点名的库内容必须原样还在')
+  })
+
+  await check('⑤ ★反证：拿**元数据文件名**（而不是文档 id）去删 ⇒ 同样静默 no-op（这正是回收里"两步必须都给 id"的理由）', async () => {
+    const fresh = await mk()
+    const metaFile = itemsB.metadataFile
+    assert.ok(typeof metaFile === 'string' && metaFile !== '', 'B 该有一个元数据文件名')
+    await fresh.deleteItem(metaFile)          // ← 真机最容易犯的错：把文件名当 id
+    assert.equal((await listItems(fresh)).length, 1, '⛔ 文件名≠id ⇒ `findIndex` 找不到 ⇒ 一条都不该少')
+    assert.equal(existsSync(join(vectorDir, metaFile)), true, '文件也还该在（deleteItem 不碰文件）')
   })
 } finally {
   try { if (existsSync(root)) rmSync(root, { recursive: true, force: true }) } catch { /* tmp 清不掉不碍事 */ }

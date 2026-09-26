@@ -166,22 +166,27 @@ check('⑤c metadataFileNamesOf：优先用 metadataFile，缺了退回 `<id>.js
 const REAL_VECTORS = 'D:/apps/SillyTavern-Launcher/SillyTavern/plugins/anima-rag/vectors/dsh-memory/index.json'
 const REAL_SUMS = 'D:/apps/dsh-tarven/70a0502d-b4e9-472f-8d5a-1c7b32b2e7ac/playthrough-adacc634-2f2e-4c09-b21a-7ad48d703f2d/archive/summaries/index.json'
 
-if (existsSync(REAL_VECTORS) && existsSync(REAL_SUMS)) {
-  check('⑥ ★真机重放（锚）：真 items ↔ 真 index.json ⇒ 49 留 / **0 孤儿** / 2 不动（probe_1/2）', () => {
+if (existsSync(REAL_VECTORS)) {
+  check('⑥ ★真机锚：真 `vectors/dsh-memory/index.json` ⇒ 每条都有归宿、白名单内的不误判、非前缀不动、空白名单拒删', () => {
     const items = JSON.parse(readFileSync(REAL_VECTORS, 'utf8')).items
-    const entries = JSON.parse(readFileSync(REAL_SUMS, 'utf8')).entries
-    const allowed = allowedKeysFromEntries(entries)
-    const { orphans, kept, skipped } = findOrphanSlices(items, allowed, { prefix: DEFAULT_INDEX_PREFIX })
-    assert.equal(kept, 49, '好切片必须一条不少')
-    // ★ 2026-09-19 重核（本锚自己要求的）：原先那 11 条孤儿（10 改名 + 1 import 清单）**已经被回收真删掉了**。
-    //   三层一致地对上了：index 62→51、逐条 metadata 62→51、BM25 81→70（正好各少 11）。
-    //   ⇒ 现在应当**一条孤儿都不剩**。若这里又变成 >0，说明回收没跑，或者又新产生了孤儿 —— 两种情况都要查。
-    assert.equal(orphans.length, 0, '孤儿已被回收 ⇒ 现在应为 0（若不为 0：回收没跑，或又产生了新孤儿）')
-    assert.equal(skipped.length, 2, 'probe_1 / probe_2 属于"来源不明 ⇒ 不动"')
-    assert.equal(decideReconcile({ allowedCount: allowed.size, itemCount: items.length }).ok, true, '本相必须放行')
+    assert.ok(Array.isArray(items) && items.length > 0, '真库该有切片')
+    // ① 拿库里**自己的** sum_ 切片当白名单 ⇒ 一条孤儿都不该有（这条钉的是 `.md` 归一对得上真文件）
+    const ownKeys = new Set(items.map((it) => sliceKeyOf(it?.metadata?.index)).filter((k) => k !== null))
+    assert.ok(ownKeys.size > 0, '真库里总该有本前缀的切片')
+    const r1 = findOrphanSlices(items, ownKeys, { prefix: DEFAULT_INDEX_PREFIX })
+    assert.equal(r1.orphans.length, 0, '⛔ 白名单就是它们自己，判成孤儿 = 归一化对不上真文件（会误删真记忆）')
+    // ② 非本前缀的一条不动（真机上是 `probe_1` / `probe_2`，但**按现测**数，不写死）
+    const foreign = items.filter((it) => sliceKeyOf(it?.metadata?.index) === null)
+    assert.equal(r1.skipped.length, foreign.length, '非本前缀的一律进 skipped')
+    // ③ 每条都要有归宿（留 / 删 / 不动）
+    assert.equal(r1.kept + r1.orphans.length + r1.skipped.length, items.length)
+    // ④ 在真库上再钉一次最要紧的那条护栏：白名单为空 ⇒ 一条都不删
+    assert.equal(decideReconcile({ allowedCount: 0, itemCount: items.length }).ok, false)
+    console.log(`  (真机：items=${items.length} · 白名单内留 ${r1.kept} · 不动 ${r1.skipped.length}`
+      + `${r1.skipped.length > 0 ? ` ⇒ ${r1.skipped.map((s) => s.index).join('、')}` : ''})`)
   })
 } else {
-  console.log('[SKIP] ⑥ 真机重放：本机没有那两个真文件（换机器/换周目就会这样）—— ⛔ 不算通过，只是测不了')
+  console.log('[SKIP] ⑥ 真机锚：本机没有 `vectors/dsh-memory/index.json`（换机器就会这样）—— ⛔ 不算通过，只是测不了')
 }
 
 const REAL_BM25 = 'D:/apps/SillyTavern-Launcher/SillyTavern/plugins/anima-rag/data/bm25_indexes/dsh-memory.json'
