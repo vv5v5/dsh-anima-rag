@@ -105,6 +105,26 @@ check('E5 预算：topK 截条、perHitChars 截字（带标注）、maxChars �
     buildEchoSlot([hit('甲')], { maxChars: 240, perHitChars: 280, topK: 5 }).length <= 240, true)
 })
 
+// ─────────────────────────── E5b 无限制模式（2026-09-27，用户口径「注入前五条，字数上限取消」）─────────
+check('E5b 无限制：maxChars/perHitChars ≤ 0 ⇒ 前五条整条注入、不截字、无预算切', () => {
+  const many = Array.from({ length: 9 }, (_, i) => hit('第' + i + '条内容' + '很长的正文'.repeat(30), `sum_mt-00${10 + i}-00${20 + i}`))
+  const out = buildEchoSlot(many, { topK: 5, maxChars: 0, perHitChars: 0 })
+  const lines = out.split('\n').filter((l) => l.startsWith('['))
+  assert.equal(lines.length, 5, 'topK 照旧生效（5 条）')
+  assert.ok(lines.every((l) => !l.includes('［片段已截断］')), 'perHitChars=0 还在截字')
+  assert.ok(!out.includes('片段已截断'), '无限制模式下不该有截断标注')
+  assert.ok(/［最多 5 条，本轮保留 5\/9 条］/.test(out), '条数账没了（超出 topK 的部分要报数）')
+  // 全文都在：任选一条的完整内容必须原样在场（不截断）
+  assert.ok(out.includes(many[2].text.replace(/\s+/g, ' ').trim()), '第 3 条内容被截了（⛔ 无限制模式不许截）')
+  // 负数与非有限数同义
+  assert.equal(buildEchoSlot(many, { topK: 5, maxChars: -1, perHitChars: -1 }).length,
+    buildEchoSlot(many, { topK: 5, maxChars: 0, perHitChars: 0 }).length, '负数与 0 行为不一致')
+  // 正值路径不受扰（老夹紧照旧）
+  const outPos = buildEchoSlot(many, { topK: 5, maxChars: 1200, perHitChars: 280 })
+  assert.ok(outPos.length <= 1200, '正值 maxChars 的硬上限被破坏')
+  assert.ok(/［已截断：回响预算 1200 字/.test(outPos), '正值模式的标注变了')
+})
+
 // ─────────────────────────── E6 顺序与纯函数 ───────────────────────────
 check('E6 顺序 = 传入顺序（⛔ 不重排），且是纯函数：不修改入参、同入同出', () => {
   const hits = [hit('甲', 'sum_mt-0100-0129-1'), hit('乙', 'sum_mt-0100-0129-2'), hit('丙', 'sum_mt-0100-0129-3')]
