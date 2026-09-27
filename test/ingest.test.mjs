@@ -380,3 +380,28 @@ test('★ 反证：anima_status 的 output.schema 必须声明新键（否则宿
     }
   } finally { s.cleanup() }
 })
+
+// ─────────────────────────── anima_query 输出 × schema（2026-09-27 真机反事故）
+//   事故：execute 实际返回的 `diagnostics` / `ensured` 未在 output.schema 声明，而
+//   `additionalProperties:false` ⇒ 宿主把整份返回当无效拒收（真机报
+//   「value.diagnostics is not a declared property」）⇒ 模型每次 anima_query 都拿到 Error。
+//   本测**真执行**一次（桩引擎 0 命中 ⇒ 走 0 结果路径，正是真机挂掉的那条），把返回的
+//   每一个键对 schema.properties 逐一核对 —— 键多一个都不行。
+
+test('★ 反证：anima_query 真执行（0 命中路径）的输出，每个键都在 output.schema 里', async () => {
+  const s = setup()
+  try {
+    const q = s.tools.get('anima_query')
+    assert.ok(q, 'anima_query 没注册')
+    const out = await q.execute({ query: '测试查询', session_id: 'test-session' })
+    assert.ok(out && typeof out === 'object', 'execute 没返回对象')
+    const props = q.output.schema.properties
+    assert.equal(q.output.schema.additionalProperties, false, '本测前提：schema 是 additionalProperties:false')
+    for (const k of Object.keys(out)) {
+      assert.ok(Object.hasOwn(props, k), `execute 返回了 schema 未声明的键: ${k}（宿主会整份拒收）`)
+    }
+    // 真机挂掉的两个键必须明确在案（0 命中说明白为什么 / 向量库补建记录）
+    assert.ok(Object.hasOwn(props, 'diagnostics'), 'diagnostics 必须在 schema 里')
+    assert.ok(Object.hasOwn(props, 'ensured'), 'ensured 必须在 schema 里')
+  } finally { s.cleanup() }
+})
