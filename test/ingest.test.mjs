@@ -388,7 +388,7 @@ test('★ 反证：anima_status 的 output.schema 必须声明新键（否则宿
 //   本测**真执行**一次（桩引擎 0 命中 ⇒ 走 0 结果路径，正是真机挂掉的那条），把返回的
 //   每一个键对 schema.properties 逐一核对 —— 键多一个都不行。
 
-test('★ 反证：anima_query 真执行（0 命中路径）的输出，每个键都在 output.schema 里', async () => {
+test('★ 反证：anima_query 真执行（0 命中路径）的输出，每个键与**值类型**都在 output.schema 里', async () => {
   const s = setup()
   try {
     const q = s.tools.get('anima_query')
@@ -397,11 +397,32 @@ test('★ 反证：anima_query 真执行（0 命中路径）的输出，每个�
     assert.ok(out && typeof out === 'object', 'execute 没返回对象')
     const props = q.output.schema.properties
     assert.equal(q.output.schema.additionalProperties, false, '本测前提：schema 是 additionalProperties:false')
-    for (const k of Object.keys(out)) {
-      assert.ok(Object.hasOwn(props, k), `execute 返回了 schema 未声明的键: ${k}（宿主会整份拒收）`)
+    // 类型对照：JSON Schema 的 array 与 object 互不包含 —— headless 二次事故：键都在，但
+    // diagnostics 实为**字符串数组**、schema 写了 type:'object' ⇒ 照样整份拒收（must be an object）。
+    const typeOk = (v, t) => {
+      if (t === 'string') return typeof v === 'string'
+      if (t === 'integer' || t === 'number') return typeof v === 'number'
+      if (t === 'boolean') return typeof v === 'boolean'
+      if (t === 'array') return Array.isArray(v)
+      if (t === 'object') return v !== null && typeof v === 'object' && !Array.isArray(v)
+      if (t === 'null') return v === null
+      return true
     }
-    // 真机挂掉的两个键必须明确在案（0 命中说明白为什么 / 向量库补建记录）
+    for (const k of Object.keys(out)) {
+      const decl = props[k]
+      assert.ok(decl !== undefined, `execute 返回了 schema 未声明的键: ${k}（宿主会整份拒收）`)
+      if (decl === undefined) continue
+      if (Array.isArray(decl.oneOf)) {
+        assert.ok(decl.oneOf.some((sub) => typeOk(out[k], sub.type)),
+          `${k} 的值类型（${Array.isArray(out[k]) ? "array" : typeof out[k]}）不在 oneOf 里`)
+        continue
+      }
+      assert.ok(typeOk(out[k], decl.type), `${k} 的值类型（${Array.isArray(out[k]) ? "array" : typeof out[k]}）与 schema（${decl.type}）不符`)
+    }
+    // 真机挂掉的两个键必须明确在案（0 命中说清为什么 / 向量库补建记录）
     assert.ok(Object.hasOwn(props, 'diagnostics'), 'diagnostics 必须在 schema 里')
+    assert.ok(Array.isArray(out.diagnostics), 'diagnostics 实际是字符串数组（explainRetrieval 的返回）')
+    assert.ok(out.diagnostics.every((x) => typeof x === 'string'), 'diagnostics 每条都应是字符串')
     assert.ok(Object.hasOwn(props, 'ensured'), 'ensured 必须在 schema 里')
   } finally { s.cleanup() }
 })
