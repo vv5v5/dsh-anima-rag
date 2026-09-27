@@ -350,3 +350,8 @@
     加 order 旋钮 ＋ memory-archive 的 `card-sections.js` 空位注记与版本号 ＋ 三个台子 ＋ persona 一行
     —— **要用户点头才做**。
 
+- **Fixed｜二修（headless 真机）**：`"value.diagnostics" must be an object` —— 键已声明但
+  **值类型不对**：`explainRetrieval` 返回的是 `out.slice(0,3)` **字符串数组**（每行一条解释），
+  `{type:'object'}` 在 JSON Schema 里不收数组。schema 如实改为
+  `diagnostics: { type:'array', items:{type:'string'} }`。测试升级为**键存在 + 值类型**双校验
+  （typeOk 对 oneOf 也生效）——旧测试只查键名，正是这次漏网的原因。eb1ae1c。
