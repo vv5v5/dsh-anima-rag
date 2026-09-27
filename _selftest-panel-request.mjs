@@ -101,11 +101,17 @@ const isoPart = { enabled: true, bound: 'playthrough-x', total: 51, denyIndexes:
     dataRoots: { vectorRoot: 'V', bm25Root: 'B', sessionRoot: 'S' },
     collectionId: 'dsh-memory', isolation: { total: 1, deniedCount: 0, boundCount: 1 },
     vector: { exists: true, count: 1, mtime: 1 }, bm25: { exists: true, bytes: 1, mtime: 1 },
+    // ★ 2026-09-27（真机 12 周目抓的）：retrieval 必须能穿透骨架落到快照里。
+    //   反证锚：把下面这行与定型器里的 `retrieval,` 一并挖掉 ⇒ 本组必红。
+    retrieval: { ok: true, failure: null, lastOkAt: 1, ms: 2, dimMismatch: [] },
   })
-  const keys = ['version', 'at', 'dataRoots', 'collectionId', 'isolation', 'vector', 'bm25', 'ingest', 'ledger', 'lastAction', 'pendingRequest']
+  const keys = ['version', 'at', 'dataRoots', 'collectionId', 'isolation', 'vector', 'bm25', 'retrieval', 'ingest', 'ledger', 'lastAction', 'pendingRequest']
   check('⑤ 骨架字段齐（面板按这份读，少一个就白屏）', keys.every((k) => k in info), JSON.stringify(Object.keys(info)))
   check('⑤ dataRoots 三个根都在（面板靠它自己现算易变项）',
     info.dataRoots.vectorRoot === 'V' && info.dataRoots.bm25Root === 'B' && info.dataRoots.sessionRoot === 'S')
+  check('⑤ retrieval 传了就要落进快照（读侧最近一次跑成没有，面板「最近检索」行靠它）',
+    info.retrieval !== null && typeof info.retrieval === 'object' && info.retrieval.ok === true && info.retrieval.ms === 2,
+    JSON.stringify(info.retrieval ?? null))
   const bare = makeVectorInfo()
   check('⑤ 全空调用也不抛，且两根是空串（⛔ 不编路径）',
     bare.dataRoots.vectorRoot === '' && bare.dataRoots.sessionRoot === '' && bare.collectionId === '' && bare.isolation === null)
