@@ -114,6 +114,13 @@ test('messageText: 字符串 content / 内容块数组 / 非文本块被过滤',
   assert.equal(messageText(undefined), '')
 })
 
+// ★ 2026-09-27 真机形状：assistant/message 的正文在 data.message.content（reasoning 在前，必须滤掉）
+test('messageText: assistant 形状（data.message.content）取 text 块，reasoning 不进正文', () => {
+  assert.equal(messageText({ message: { content: [{ type: 'reasoning', text: '私有思考' }, { type: 'text', text: '可见正文' }] } }), '可见正文')
+  assert.equal(messageText({ message: { content: [{ type: 'reasoning', text: '只想没说' }] } }), '')
+  assert.equal(messageText({}), '')
+})
+
 test('extractMessages: 只取 user/assistant，且**排除插件注入**（防自反馈）', () => {
   const msgs = extractMessages([
     ev('user/message', 'U1'),

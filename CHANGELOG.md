@@ -9,6 +9,22 @@
 
 ## [Unreleased]
 
+### 2026-09-27 下午（检索词只剩玩家楼的真因：助手楼正文从来没被取到）
+
+> 用户口径（逐字）：「**目前默认的向量检索词只有玩家那一轮正文，改成最后两轮，也就是助手和玩家**」。
+
+- **根因｜事件形状二态没兼容**（`lib/query-build.js` `messageText`）：`user/message` 的正文在
+  `data.content`，`assistant/message` 的正文在 **`data.message.content`**（reasoning 块在前）。
+  改前只读前者 ⇒ 助手楼在 `extractMessages` 里**永远取成空被丢掉** ⇒ 检索词只剩玩家楼
+  （`vectorPrompt.count` 再大也没有助手参与；真机 12 周目转录逐帧解开实证）。
+  旧台子为什么全绿：`test/pure.test.mjs` 的 `ev()` 把助手事件也造成 user 形状，形状本身错。
+- **Fixed｜`messageText` 双形状**：`data.content` 缺席时回落 `data.message.content`；
+  `reasoning` 块靠既有的 `type==='text'` 过滤，**⛔ 思维链不进检索词**。`vectorPrompt.count: 2`
+  **不用改**（它本来就是"最后两条消息"）——修完形状，`[助手上一楼, 玩家这一楼]` 自然成立。
+- **自检**：新增 `_selftest-query-build.mjs`（进全量门）——**8/0**，事件形状逐字照抄真机转录；
+  反证：挖掉 `: data?.message?.content` 回落 ⇒ 3 条必红。`pure.test.mjs` 补 assistant 形状
+  用例（21→22 全绿）。
+
 ### 2026-09-27 中午（快照定型器吞掉 retrieval 字段——面板「最近检索」永远"读不到"的真因）
 
 > 真机 12 周目：检索实际在跑（12:38:36 那轮 `<recalledMemories>` 真段 1669 字、
