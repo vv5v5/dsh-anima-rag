@@ -9,6 +9,29 @@
 
 ## [Unreleased]
 
+### 2026-09-27 傍晚（echo:0 一直不生效的真因：两条 anima 同挂，赢家是带旧配置的根层那条 ＋ 回响格改次级命中）
+
+> 用户口径（逐字）：「**还是1200字上限**」「**读这一段，看起来有些混乱**」。
+
+- **根因｜双实例撞名**：`dsh-anima-rag` bundle 在**根层**还挂着一条（`name: dsh-anima-rag`，
+  旧配置：无 `inject.echo` ⇒ DEFAULTS 1200/280、embed 4B、带机器路径），与预设树里那条
+  （`./preset-modules/anima-rag.js`，新配置）**同 id、同段名（anima:memory）、同 order**。
+  宿主 `applyEntryPatches` 按 id 匹配、带 name 必须逐字同名才应用 ⇒ patch 里那条
+  `name: './preset-modules/anima-rag.js'` 的**根本没命中根层条**（静默跳过），而
+  section 撞名的赢家一直是根层旧条 ⇒ patch 里怎么改 echo 都白改。
+  **修**：`cordis.patch.yml` 加 `- id: anima-rag, name: dsh-anima-rag, disabled: true`
+  （dump-config 实证：根层条目已带 `disabled: true`、段头标 "patched by"）。
+  ⚠️ dependencies 里的 dsh-anima-rag 不能摘——预设薄壳靠它 resolve。
+- **Fixed｜回响格改「次级命中」**：改前 `<memoryEcho>` 与 `<recalledMemories>` 装**同一份**
+  `merged_chat_results` ⇒ 回响格永远是主召回的子集，同一段剧情每轮读两遍（即「混乱」）。
+  现在回响格装候选池 `_echo_pool` 里**没进主召回**的次级命中
+  （`lib/echo-view.js` 新纯函数 `echoExtrasFromPool`，index.js 接线；池子缺席 ⇒ 整格如实不出）。
+  `（回响续命）`标记随 is_echo 条目挪到 rag 渲染层（`lib/render.js` `formatMergedChat`）——
+  续命条目只出现在 rag 里了，标记跟着搬，可见性不丢。
+- **自检**：echo-slot 新增 X1-X4（取料/去重/保留/缺席）＋W1/W4 改钉新接线，**16/0**；
+  反证：把取料换回主召回 ⇒ W1 必红。read-failure ①d 假引擎补 `_echo_pool`，**14/0**。
+  全套门 **74 passed / 0 failed**；已同步安装拷贝。
+
 ### 2026-09-27 下午（检索词只剩玩家楼的真因：助手楼正文从来没被取到）
 
 > 用户口径（逐字）：「**目前默认的向量检索词只有玩家那一轮正文，改成最后两轮，也就是助手和玩家**」。

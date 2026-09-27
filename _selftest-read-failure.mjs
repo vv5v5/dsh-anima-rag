@@ -132,6 +132,12 @@ export function createEngine() {
           merged_kb_results: [],
           _debug_logs: [],
           _diag: { query: 4, collections: [], mismatched: ['影子_-0906重开（库 2560 维 / 查询 4096 维）'] },
+          // ★ 2026-09-27：回响格改吃次级命中（候选池 − 主召回）⇒ 假引擎也要给池子：
+          //   池里两条，一条撞主召回的 index（该被排除）、一条是次级命中（进 <memoryEcho>）。
+          _echo_pool: [
+            { item: { metadata: { text: '1966年9月1日 上午：楼下，老崔提供了热粥。', index: 'sum_mt-0100-0129-1' } }, score: 0.9 },
+            { item: { metadata: { text: '1966年9月1日 黄昏：厂区的汽笛比往常早了半小时。', index: 'sum_mt-0130-0140-1' } }, score: 0.4 },
+          ],
         }
       }
       throw new Error('boom')

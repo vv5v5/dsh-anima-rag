@@ -18,17 +18,24 @@
  *     E7 ★★ 反证：**fts5 形状的命中（`{floor, body, docKey, hitCount}`）喂进来 ⇒ 一条都用不上**
  *        （它认的是 anima 命中的 `text`）—— 这就是"换回 fts5 的命中必红"那条反证的行为版。
  *   接线 —— `lib/index.js`：
- *     W1 回响格是 `buildEchoSlot(res?.merged_chat_results, …)` 建的（喂的是**语义命中**）；
+ *     W1 回响格喂的是 `echoExtrasFromPool(res?._echo_pool, res?.merged_chat_results)` 的
+ *        **次级命中**（2026-09-27 起：⛔ 不再与主召回同一份列表——改前 `<memoryEcho>`
+ *        永远是 `<recalledMemories>` 的子集，用户口径「读这一段，看起来有些混乱」）；
  *     W2 由 `inject.echo` 那组预算驱动、`enabled:false` 就整格不出；
  *     W3 它排在这一段文本的**最前面**（与改前 `dma:echo`@54 在 `anima:memory`@55 之前同序）；
- *     W4 ★反证：把喂进去的那份数据换成 fts5 那套（`floors`/`body`）⇒ W1 的判据必红。
+ *     W4 ★反证：把喂进去的那份数据换掉（换回主召回本身 / fts5 那套）⇒ W1 的判据必红。
+ *   取料 —— `lib/echo-view.js` 的 `echoExtrasFromPool`：
+ *     X1 候选池原始形状（`item.metadata.{text,index}`）⇒ 定型成命中形状；
+ *     X2 已进主召回（`index` 撞上 `merged_chat_results`）⇒ 排除（去重是这条函数的全部意义）；
+ *     X3 认不出 `index` 的不参与去重、照常保留（⛔ 不静默丢内容）；无正文的坏条目丢弃；
+ *     X4 池子缺席（[]/null）⇒ 空数组 ⇒ 回响格整格不出（如实缺席，⛔ 不编内容）。
  */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import assert from 'node:assert/strict'
 
-import { ECHO_PREAMBLE, buildEchoSlot, floorRangeOf, hitLabel } from './lib/echo-view.js'
+import { ECHO_PREAMBLE, buildEchoSlot, echoExtrasFromPool, floorRangeOf, hitLabel } from './lib/echo-view.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const SRC = readFileSync(path.join(here, 'lib', 'index.js'), 'utf8')
@@ -148,10 +155,64 @@ check('E7 ★★ 反证：fts5 那套命中（{floor, body, docKey, hitCount}）
   assert.equal(buildEchoSlot(fts5Hits), '', 'fts5 形状居然被渲染出来了 ⇒ 这格可能又接回 fts5 了')
 })
 
+// ─────────────────────────── X1..X4 取料：次级命中（2026-09-27）───────────────────────────
+check('X1 候选池原始形状（item.metadata）⇒ 定型成命中形状，保持池内顺序', () => {
+  const pool = [
+    { item: { metadata: { text: '池里的第一条', index: 'sum_mt-0130-0140-1' } }, score: 0.9 },
+    { item: { metadata: { text: '池里的第二条', index: '1_2' } }, score: 0.5 },
+  ]
+  const extras = echoExtrasFromPool(pool, [])
+  assert.equal(extras.length, 2, '两条都该被收进来：' + JSON.stringify(extras))
+  assert.equal(extras[0].text, '池里的第一条')
+  assert.equal(extras[0].index, 'sum_mt-0130-0140-1')
+  assert.equal(extras[1].index, '1_2', 'ST 老库形状的 index 也要原样带上')
+  const out = buildEchoSlot(extras, { topK: 5 })
+  assert.ok(out.includes('[楼 0130-0140] 池里的第一条'), '定型后的命中要能正常渲染')
+})
+
+check('X2 已进主召回（index 撞 merged_chat_results）⇒ 排除；回响格输出里不再出现主召回的内容', () => {
+  const rag = [
+    { text: '主召回甲：糖水摊那段', index: 'sum_mt-0082-0099-1' },
+    { text: '主召回乙', index: 'sum_mt-0100-0129-1' },
+  ]
+  const pool = [
+    { item: { metadata: { text: '主召回甲：糖水摊那段（池里同一条）', index: 'sum_mt-0082-0099-1' } } },
+    { item: { metadata: { text: '池里独有的次级命中', index: 'sum_mt-0042-0081-2' } } },
+    { item: { metadata: { text: '另一条次级命中', index: 'sum_mt-0000-0020-1' } } },
+  ]
+  const extras = echoExtrasFromPool(pool, rag)
+  assert.equal(extras.length, 2, '撞 index 的那条必须被排除：' + JSON.stringify(extras))
+  assert.ok(extras.every((e) => e.index !== 'sum_mt-0082-0099-1'), '主召回的 index 漏进来了')
+  const out = buildEchoSlot(extras, { topK: 5 })
+  assert.ok(!out.includes('糖水摊'), '回响格里出现了主召回的内容 ⇒ 两格还在重复')
+})
+
+check('X3 认不出 index 的不参与去重、照常保留（⛔ 不静默丢内容）；无正文的坏条目丢弃', () => {
+  const rag = [{ text: '主召回', index: 'sum_mt-0082-0099-1' }]
+  const pool = [
+    { item: { metadata: { text: '没有index的候选', index: undefined } } },
+    { item: { metadata: { text: '   ' } } },
+    { item: {} },
+    null,
+  ]
+  const extras = echoExtrasFromPool(pool, rag)
+  assert.equal(extras.length, 1, '该留的只有"没有index的候选"：' + JSON.stringify(extras))
+  assert.equal(extras[0].text, '没有index的候选')
+})
+
+check('X4 池子缺席（[]/null/undefined）⇒ 空数组 ⇒ 回响格整格不出', () => {
+  const rag = [{ text: '主召回', index: 'sum_mt-0082-0099-1' }]
+  for (const bad of [[], null, undefined]) {
+    assert.deepEqual(echoExtrasFromPool(bad, rag), [], `池子 ${JSON.stringify(bad)} 该给空数组`)
+  }
+  assert.equal(buildEchoSlot(echoExtrasFromPool(null, rag)), '', '空次级命中 ⇒ 这轮不注入回响格')
+})
+
 // ─────────────────────────── W1..W4 接线 ───────────────────────────
-check('W1 接线：回响格由 `buildEchoSlot(res?.merged_chat_results, …)` 建（喂的是语义命中）', () => {
-  assert.ok(/buildEchoSlot\(\s*res\?\.merged_chat_results/.test(LIVE),
-    'index.js 里没有"用 merged_chat_results 建回响格"那一行 —— 接线断了')
+check('W1 接线：回响格喂的是 echoExtrasFromPool(候选池, 主召回) 的次级命中（⛔ 不再与主召回同源）', () => {
+  assert.ok(/const echoHits = echoExtrasFromPool\(res\?\._echo_pool,\s*res\?\.merged_chat_results\)/.test(LIVE),
+    'index.js 里没有"echoExtrasFromPool(_echo_pool, merged_chat_results)"那一行 —— 接线断了')
+  assert.ok(/buildEchoSlot\(echoHits,/.test(LIVE), '回响格改喂的不是 echoHits')
   assert.ok(LIVE.includes("from './echo-view.js'"), '没有 import echo-view')
 })
 
@@ -175,10 +236,11 @@ check('W3 接线：回响格排在**最前面**（与改前 dma:echo@54 在 anim
   assert.ok(iEcho < iRag, '回响格必须排在 <recalledMemories> 那一段之前')
 })
 
-check('W4 ★反证：把喂进去的数据换成 fts5 那一套（floors/body）⇒ W1 的判据必红', () => {
-  const back = LIVE.replace(/buildEchoSlot\(\s*res\?\.merged_chat_results/, 'buildEchoSlot(res?.echo_floors')
-  assert.equal(/buildEchoSlot\(\s*res\?\.merged_chat_results/.test(back), false,
-    '反证失败：换回 fts5 那套数据后 W1 仍被判为成立')
+check('W4 ★反证：把取料换回主召回本身（merged_chat_results 直接喂）⇒ W1 的判据必红', () => {
+  const back = LIVE.replace(/echoExtrasFromPool\(res\?\._echo_pool,\s*res\?\.merged_chat_results\)/,
+    'res?.merged_chat_results')
+  assert.equal(/echoExtrasFromPool\(res\?\._echo_pool/.test(back), false,
+    '反证失败：换回主召回同源后 W1 仍被判为成立')
 })
 
 console.log(`\n── ${pass} 通过 / ${fails.length} 失败 ──`)
