@@ -275,11 +275,17 @@ test('★ 回归：`import-*` 批次清单不许进 <immediateHistory>（就算�
     // ★ 2026-09-26：会话 id 必须用夹具里那个（`SESSION`）—— 近场摘要的目录也是
     //   **按会话的周目**解析的，随便一个 id 会得到空目录 ⇒ 断言"近场摘要应当进来"必然红。
     const agent = { id: SESSION, session: { id: SESSION, snapshotEvents: () => events } }
+    await h({ sections: [] }, { agent }, () => Promise.resolve({ sections: [] }))
     const out = await h({ sections: [] }, { agent }, () => Promise.resolve({ sections: [] }))
-    const text = String((out?.sections ?? []).find((x) => x.name === 'anima:memory')?.text ?? '')
-    assert.match(text, /正经的内容摘要/, '近场摘要应当进来')
+    // ★ 2026-09-28：delivery:'tail' ⇒ 回响不进 sections。这条回归守『批次清单不许进注入正文』
+    //   ⇒ 改在**pre-step 追加的消息**上验：批次清单不许出现，正经摘要必须在。
+    const pre = s.handlers.get('agent/pre-step')
+    assert.equal(typeof pre, 'function', 'tail 交付的 pre-step 钩子没注册')
+    const decision = await pre({ agent, messages: [] }, () => Promise.resolve({ kind: 'enter', messages: [] }))
+    const msg = (decision?.messages ?? []).at(-1)
+    const text = String(msg?.content?.[0]?.text ?? '')
+    assert.match(text, /正经的内容摘要/, '近场摘要应当进来（在尾部消息里）')
     assert.ok(!text.includes('导入批次清单'), '批次清单**不许**进来：' + text.slice(0, 120))
-    assert.ok(text.includes('<immediateHistory>'), '近场段头还在')
   } finally { s.cleanup() }
 })
 
