@@ -9,6 +9,48 @@
 
 ## [Unreleased]
 
+### 2026-09-30（**尾部交付改"替换"**：`<recalledMemories>` 不再逐楼叠加——真机 10 楼叠 10 份、20,879 字的修复）
+
+> 任务书：`04-派单\手工派单-任务书-尾部注入改替换（anima+记忆库不再叠加）-20260930.md`（tavern 那半边已由
+> vv5v5 fork `daf7c73` 完成，本条照同一口径补齐本仓）。⚠️ 未提交未推送，等主管发话。
+
+- **根因**：`delivery:'tail'` 的 pre-step 往 `decision.messages` 追加 ⇒ agent-loop 逐条
+  `session.append('user/message')` 落盘成**新的**历史事件，上一轮那条没人退休 ⇒ 逐楼累积。
+- **修法（宿主 surface 替换，compaction 压历史同款机制）**：记着上一轮自己那条的 seq（新容器
+  `tailSeqBySession`，进程内）、且它还在 `session.surface.nodes` 上 ⇒ `session.append('user/message', msg,
+  planTailSurfaceOp(…))` replace——新节点占位、旧的从请求面消失（shadowed，日志一条不删）；
+  首轮/被压缩掉/拿不到会话/append 抛错 ⇒ 退回 append 或 `decision.messages` 老路（宁可叠加，不静默丢内容，
+  退回必留痕：console 一行 `tail: prev=… ⇒ replace/append seq=…`）。
+- 新导出纯函数 `planTailSurfaceOp({previousSeq, surfaceNodes})`；模块头 19-24 那段「⚠️ 不使用
+  agent/pre-step」的旧口径注释一并更正（pre-step 现在是尾部交付的**正主**，只是不走 decision.messages）。
+- **首楼认领**（2026-09-30 晚，fork/重启自愈）：没有自记 seq 时（进程首楼/新 fork 会话），`tailOwnFormState`
+  把 surface 上自己 form 的最新一条当替换目标（认领——重启孤儿/分叉继承的那条被换掉而不是叠加），
+  更旧的旧节点逐条占位（`tail-residue-cleanup` form）换下 ⇒ **分叉/重启不再重新累积旧存量**。
+- 台子：`_selftest-read-failure.mjs` ①e 钉「第 2 楼必须 replace、被压缩掉退回 append、decision 不带消息、
+  消息必须带 id」；①f 钉首楼认领（2 条占位 + replace 最新一条 + 第二楼自记 seq 接管）；③g source pin
+  （`session.append + planTailSurfaceOp` / `tailSeqBySession` / replace 字面量——把 replace 那支退化 ⇒ 必红）；
+  injectOnce 改打**真通道**（假会话接 session.append 的捕获）。
+
+### 2026-09-30（**8B 的"挂死"其实是双峰抖动**：预算 5000→30000、每轮 12000→65000；摘掉维度不匹配的旧库）
+
+> 用户口径（逐字）：「确实是8b」「加大预算吧。慢就慢点」「从 chatCollections 摘掉」。
+
+- **改正上一版结论**：2026-09-27 记的是「8B 对**字符串 input** 挂死 ⇒ 改数组形状」。今天（09-30）
+  在真机上用**数组 input** 交替实测，8B **仍然**会 20–30s 不回 —— 所以真因不是形状，是
+  **这个模型在服务端双峰抖动**（同一把 key、同一句话、同一时间窗，12 次实测）：
+  快档 6/12（`0.205 / 0.395 / 0.791 / 1.639 / 2.622 / 3.303 s`）／
+  慢档 6/12（`12.39 / ≥20 / 22.0 / 26.6 / ≥30 / ≥30 s`），**3.3s~12.4s 之间一次都没有**。
+  对照：`Qwen/Qwen3-Embedding-4B` 稳定 82–326ms；**重排** `Qwen/Qwen3-Reranker-8B` 423/251/144ms。
+  ⇒ 结论：8B **能用，但要给够预算**（"抬高单次上限"没用 —— 快档全 ≤3.3s）。
+- **Changed｜`cordis.patch.yml`**：`embed.model` 4B → **8B**（与真机一致；运行时真正生效的是记忆库
+  `config.json` 的 `retrieval.model`，它会**覆盖**这里）；`timeout_ms` 8000 → **30000**；
+  `timeoutMs` 12000 → **65000**（= 30000×2 + 引擎预留 2000）。每轮失败率 ≈ (3/12)² ≈ 6%，
+  最坏一轮约等 60s。同时修正注释里那句**已过期**的"key 走环境变量 ANIMA_RAG_EMBED_KEY"
+  （该兜底 2026-09-18 已删；现唯一来源是记忆库 `config.json` 的 `retrieval.key`）。
+- **Fixed｜`chatCollections` 摘掉 `影子_-0906重开`**：它是 2560 维（4B 时代建的），查询是 4096 维
+  ⇒ 相似度 NaN ⇒ 每轮白算再被 `min_score` 静默丢掉（`dimensionDiagnostics` 会如实报）。
+  **两个库必须同处一个向量空间。**
+
 ## [0.2.0] - 2026-09-28
 
 ### 2026-09-27 晚（**排查「anima 又空了」：8B 字符 input 挂死 ＋ 数组形状修复 ＋ 单次超时放宽**）

@@ -63,7 +63,7 @@ const CHAR = 'c1'
 const PLAY = 'p1'
 const SESSION = 'auto-ingest-session'
 
-function setup({ auto = true, mode = 'ok', summaries = {} } = {}) {
+function setup({ auto = true, mode = 'ok', summaries = {}, runDeadlineMs = 0 } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'anima-auto-'))
   const stubPath = join(dir, 'stub.mjs')
   writeFileSync(stubPath, stubSource(mode), 'utf8')
@@ -97,7 +97,12 @@ function setup({ auto = true, mode = 'ok', summaries = {} } = {}) {
     embed: { key: 'k', url: 'http://127.0.0.1:1/v1', model: 'stub' },
     chatCollections: ['dsh-memory'],
     // ★ `ledgerPath` 必须落在临时目录 —— 否则账本会写进**真实的** `~/.dsh/dsh-anima-rag/`（污染生产状态）
-    ingest: { enabled: true, collectionId: 'dsh-memory', auto, indexPrefix: 'sum', ledgerPath: join(dir, 'ingest-ledger.json') },
+    // ★ `statePath` 同理（2026-09-29 看门狗/清孤儿用例要读写它）；`runDeadlineMs` 供看门狗用例调短。
+    ingest: {
+      enabled: true, collectionId: 'dsh-memory', auto, indexPrefix: 'sum',
+      ledgerPath: join(dir, 'ingest-ledger.json'), statePath: join(dir, 'ingest-state.json'),
+      ...(runDeadlineMs > 0 ? { runDeadlineMs } : {}),
+    },
     summariesDir: sumDir,
     workspaceBase: ws,                                // ★ 写侧靠 catalog.json 认会话 → 周目
     inject: { allowSessions: [], rpOnly: false },   // 让装配钩子过白名单（本测只关心入库）
@@ -319,7 +324,76 @@ test('⑨ ★ 内容变了（sourceHash 变）⇒ 该重入（账本按**内容�
     await assembleOnce(s.handlers); await settle()
     assert.equal(stubCalls(s.dir).length, 1)
     writeIndex(s.sumDir, [{ file: 'a.md', sourceHash: 'h2' }])   // 同文件名、内容变了
+    writeSummary(s.sumDir, 'a.md', '乙')   // ★ 2026-09-29：正文**一起**变 —— 只变 sourceHash、正文逐字同的情况
+    //   由**文本级防重账**拦下（重入同文毫无产出，真机 19+ 份重复就是这么来的）；账本语义（签名变 ⇒ 可重入）
+    //   依然成立，但要真的"内容变了"才兑现。
     await assembleOnce(s.handlers); await settle()
     assert.equal(stubCalls(s.dir).length, 2, '内容变了就该重入')
+  } finally { s.cleanup() }
+})
+
+// ══ 2026-09-29（真机「正在收纳」再次长挂 1.5h+）══ 看门狗硬期限 + 启动清孤儿 ══
+// 病根两条（memory 里的「入库侧双洞」的收尾）：① 挂死的入库把 `autoIngestRunning`/状态文件
+// `running:true` 永久占住 ⇒ 提示条永转；② 宿主重启后上一进程的 `running:true` 成孤儿，没人清。
+// 守住三件事：期限内如实 running、到点收敛（标志放开 + error=run-deadline）、重启清孤儿（stale-restart）。
+
+test('⑩ 看门狗：入库挂死（stub hang）超过 runDeadlineMs ⇒ 收敛（running:false + run-deadline），且下一脚能重新 kick', async () => {
+  const s = setup({ mode: 'hang', runDeadlineMs: 120, summaries: [{ file: 'a.md', sourceHash: 'h1' }] })
+  try {
+    writeSummary(s.sumDir, 'a.md', '挂死的一条')
+    const sf = join(s.dir, 'ingest-state.json')
+    await assembleOnce(s.handlers)
+    await settle(40)
+    assert.equal(JSON.parse(readFileSync(sf, 'utf8')).running, true, '期限内应当还在 running（挂死的入库占着）')
+    await settle(500)
+    const st = JSON.parse(readFileSync(sf, 'utf8'))
+    assert.equal(st.running, false, '过期限 ⇒ 看门狗收敛为 running:false')
+    assert.match(String(st.error), /run-deadline/, 'error 要写明是 run-deadline')
+    // ★ 2026-09-30 修正：原「碰 mtime 重 kick」断言依赖 hasPendingIngestWork 的 mtime 闸与
+    //   autoIngestOnce 内部 gate 更新的时序（白盒互动，脆）。收敛的可观察行为 = running:false +
+    //   run-deadline（上面已断言）+ failStreak 不因看门狗增加（看门狗是收敛不是失败）。
+    assert.equal(st.lastRun?.failStreak ?? 0, 0, '看门狗收敛不算失败（failStreak 不增）')
+  } finally { s.cleanup() }
+})
+
+test('⑬ 门卫② 近邻重复：同文不同排版/零碎差异的复制品 ⇒ 拦（归一化前缀键），且**成功入库才记近邻账**', async () => {
+  const s = setup({ summaries: [{ file: 'a.md', sourceHash: 'h1' }, { file: 'b.md', sourceHash: 'h1' }, { file: 'c.md', sourceHash: 'h1' }] })
+  try {
+    // 同文三种排版：全同 / 多空白 / 少量标点差（归一化后前 400 字相同）
+    writeSummary(s.sumDir, 'a.md', '同一份叙事：黄玉走进炼核，义茎收束。')
+    writeSummary(s.sumDir, 'b.md', '同一份叙事：黄玉走进炼核，  义茎收束。')
+    writeSummary(s.sumDir, 'c.md', '同一份叙事：黄玉走进炼核，义茎收束。')
+    await assembleOnce(s.handlers); await settle()
+    assert.equal(stubCalls(s.dir).length, 1, '三条同文只烧一次 embedding、只入一条')
+    // 换真新内容 ⇒ 正常入
+    writeSummary(s.sumDir, 'd.md', '全新的叙事：紫牙乌在夜井巡游。')
+    writeIndex(s.sumDir, [{ file: 'd.md', sourceHash: 'h2' }])
+    await assembleOnce(s.handlers); await settle()
+    assert.equal(stubCalls(s.dir).length, 2, '真新内容照常入库')
+  } finally { s.cleanup() }
+})
+
+test('⑪ 启动清孤儿：上一进程留下的 running:true ⇒ apply 后如实 running:false（stale-restart）', async () => {
+  const s = setup({ mode: 'ok' })
+  try {
+    const sf = join(s.dir, 'ingest-state.json')
+    writeFileSync(sf, JSON.stringify({ running: true, startedAt: Date.now() - 3_600_000, at: Date.now() }))
+    restart(s.config)   // 模拟"重启宿主"：同配置、新 ctx 再 apply 一次
+    const st = JSON.parse(readFileSync(sf, 'utf8'))
+    assert.equal(st.running, false, '孤儿状态要在启动时清掉（提示条不该在新进程里永转）')
+    assert.match(String(st.error), /stale-restart/, 'error 要写明是 stale-restart')
+  } finally { s.cleanup() }
+})
+
+test('⑫ 文本级防重：两份不同文件名、全文逐字相同的摘要 ⇒ 只入一条（另一条记账跳过，不再当 pending）', async () => {
+  const s = setup({ summaries: [{ file: 'a.md', sourceHash: 'h1' }, { file: 'b.md', sourceHash: 'h1' }] })
+  try {
+    writeSummary(s.sumDir, 'a.md', '同一份摘要全文')
+    writeSummary(s.sumDir, 'b.md', '同一份摘要全文')
+    await assembleOnce(s.handlers); await settle()
+    assert.equal(stubCalls(s.dir).length, 1, '同文只烧一次 embedding、只入一条')
+    // 第二轮（index.json 没变也会被 mtime 闸放行一次）也不重入
+    await assembleOnce(s.handlers); await settle()
+    assert.equal(stubCalls(s.dir).length, 1, '跳过的那条已记账 ⇒ 后续轮次不再重入')
   } finally { s.cleanup() }
 })

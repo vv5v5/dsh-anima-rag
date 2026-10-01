@@ -93,17 +93,52 @@ function stubCtx() {
   }
 }
 
-/** 装配一次，返回写进 `anima:memory` 那一段的文本（拿不到就空串）。 */
+/**
+ * 装配一次 + 走一遍 pre-step，返回**真正交付给模型**的那条尾部消息文本（拿不到就空串）。
+ * ★ 2026-09-30（delivery:'tail' 已是默认，95769f2）：正文不进 system 段（那里只剩一行指针），
+ *   走的是 `agent/pre-step` ⇒ **直接 `session.append` + surface 替换**（叠加修复后的真通道）——
+ *   判据必须打在真通道上：假会话接住 `session.append` 调用，文本从捕获的消息里取。
+ */
 async function injectOnce(cfg) {
+  const r = await deliverOnce(cfg)
+  return r.text
+}
+
+/** 同 injectOnce，但把交付细节带回来（捕获的 session.append 调用 / 返回的 decision）。 */
+async function deliverOnce(cfg) {
+  const { hooks, preStep, session } = await assembleWithFakes(cfg)
+  const captures = session.__captures
+  const decision = await preStep({ agent: { id: 'session-readfail', session } }, () => Promise.resolve({ kind: 'enter', messages: [] }))
+  const last = captures[captures.length - 1]
+  return { text: last ? String(last.message.content[0].text ?? '') : '', captures, decision }
+}
+
+/** apply 一次 + 跑装配钩子；返回 pre-step 钩子与一个假会话（append 落 captures、surface.nodes 随之增长）。 */
+async function assembleWithFakes(cfg) {
   const { ctx, hooks } = stubCtx()
   const { apply } = await import('./lib/index.js')
   apply(ctx, cfg)
   const hook = (hooks.get('system-prompt/assemble') ?? [])[0]
   assert.ok(typeof hook === 'function', '装配钩子没注册')
   const { args } = hookArgs()
-  const out = await hook(args[0], args[1], args[2])
-  const sec = (out?.sections ?? []).find((s) => s.name === 'anima:memory')
-  return sec === undefined ? '' : String(sec.text ?? '')
+  await hook(args[0], args[1], args[2])
+  const preStep = (hooks.get('agent/pre-step') ?? [])[0]
+  assert.ok(typeof preStep === 'function', 'pre-step 钩子没注册（delivery:tail 的交付通道）')
+  const captures = []
+  const surface = { nodes: [] }
+  const session = {
+    id: 'session-readfail',
+    surface,
+    append(type, message, intent) {
+      assert.equal(type, 'user/message', 'session.append 的 type 契约被改了：' + String(type))
+      const seq = 3300 + captures.length + 1
+      captures.push({ seq, message, intent })
+      surface.nodes.push(seq)
+      return { seq }
+    },
+    __captures: captures,
+  }
+  return { hooks, preStep, session }
 }
 
 /** 写一个「假引擎」模块，用 `cfg.engineModule` 挂上去（⛔ 不依赖 vectra，跑得动就行）。 */
@@ -173,7 +208,9 @@ await check('① a. 嵌入超时 ⇒ 注入那一格**有那句如实说明**（
   assert.ok(text.includes('/embeddings'), '没写端点：' + text)
   assert.ok(text.includes('Qwen/Qwen3-Embedding-8B'), '没写模型：' + text)
   assert.ok(text.includes('这是故障说明，不是记忆内容'), '没讲清"这句不是记忆"（模型可能把它当记忆读）')
-  assert.ok(text.startsWith('〔') && text.includes('检索没跑成'), '没按约定的形状写（〔〕+「检索没跑成」）：' + text.slice(0, 80))
+  // ★ delivery:'tail'：说明外面包着尾部消息的 <recalledMemories> 信封，说明本体仍是 〔检索没跑成…〕 形状
+  assert.ok(text.startsWith('<recalledMemories>'), '没走尾部消息信封（<recalledMemories> 开头）：' + text.slice(0, 80))
+  assert.ok(text.includes('〔检索没跑成'), '没按约定的形状写（〔〕+「检索没跑成」）：' + text.slice(0, 80))
 })
 
 await check('① b. ★反证：把那句说明从返回文本里挖掉 ⇒ ①a 必须红', async () => {
@@ -200,8 +237,85 @@ await check('① d. 有命中时**没有**故障说明：注入的是 <memoryEch
   assert.ok(text.includes('（回响续命）'), 'is_echo 那条没标出来')
   assert.equal(text.includes('检索没跑成'), false, '这一轮明明成功了，却带了故障说明')
   assert.ok(text.includes('查询向量的维度与库里的切片对不上'), '维度对不上（真机现状）没被说出来：' + text.slice(0, 400))
-  // 顺序：回响格在最前，recalledMemories 在后（与改前 dma:echo@54 → anima:memory@55 同序）
-  assert.ok(text.indexOf('<memoryEcho>') < text.indexOf('<recalledMemories>'), '两格的先后反了')
+  // 顺序：尾部信封 <recalledMemories> 最先开（indexOf 命中的是信封）；回响格在信封内、
+  // 主召回正文（老崔热粥）之前 —— 与改前 dma:echo@54 → anima:memory@55 同序。
+  assert.ok(text.indexOf('<memoryEcho>') > 0, '回响格没在信封内：' + text.slice(0, 120))
+  assert.ok(text.indexOf('<memoryEcho>') < text.indexOf('老崔提供了热粥'), '两格的先后反了')
+})
+
+await check('① e. ★叠加修复：第二楼必须 replace 换掉上一轮那条（请求面只留一份）', async () => {
+  globalThis.__READFAIL_MODE = 'timeout'
+  const { preStep, session } = await assembleWithFakes(baseCfg(FAKE))
+  const base = () => ({ kind: 'enter', messages: [] })
+  // 第 1 楼：没有可换的 ⇒ append；decision 原样返回（⛔ 不许再带消息——那条路=新增历史事件=累积）
+  const d1 = await preStep({ agent: { id: 'session-readfail', session } }, () => Promise.resolve(base()))
+  assert.equal(d1.messages.length, 0, '替换通路返回的 decision 不该带新消息（那条路=新增历史事件=累积）')
+  assert.equal(session.__captures.length, 1, '第 1 楼就该交付一条')
+  assert.equal(session.__captures[0].intent.surfaceOp, 'append', '首轮没有可换的 ⇒ append')
+  assert.equal(session.__captures[0].message.source.form, 'anima:memory', 'source 形状不许动')
+  // 第 2 楼：上一轮那条还在 surface 上 ⇒ 必须正好 replace 它
+  await preStep({ agent: { id: 'session-readfail', session } }, () => Promise.resolve(base()))
+  assert.equal(session.__captures.length, 2, '第 2 楼也该交付一条')
+  const first = session.__captures[0].seq
+  assert.deepEqual(session.__captures[1].intent, {
+    surfaceOp: { op: 'replace', startSeq: first, endSeq: first },
+    sourceEventSeqs: [first],
+  }, '第二楼没把上一轮那条换掉（= 还在叠加）：' + JSON.stringify(session.__captures[1].intent))
+  // 反证咬合：那条被压缩掉（不在 surface 上）⇒ 必须退回 append，⛔ 拿旧 seq 硬 replace（宿主会拒）
+  session.surface.nodes.length = 0
+  await preStep({ agent: { id: 'session-readfail', session } }, () => Promise.resolve(base()))
+  assert.equal(session.__captures[2].intent.surfaceOp, 'append', '上一轮已不在 surface ⇒ 必须退回 append')
+  // 消息形状：id 必须带（缺 id 落盘过不了 V4 校验，resume 直接拒载——2026-09-29 踩过）
+  for (const c of session.__captures) {
+    assert.equal(typeof c.message.id, 'string', '消息缺 id（落盘过不了 V4 校验）')
+    assert.ok(c.message.id.length > 0, '消息 id 是空串')
+  }
+})
+
+await check('① f. ★首楼认领（fork/重启自愈）：表面已有 3 条旧 anima:memory ⇒ 首楼换下 2 条旧的 + 正好 replace 最新一条', async () => {
+  globalThis.__READFAIL_MODE = 'timeout'
+  const { hooks } = await (async () => {
+    const { ctx, hooks } = stubCtx()
+    const { apply } = await import('./lib/index.js')
+    apply(ctx, baseCfg(FAKE))
+    const { args } = hookArgs()
+    await hooks.get('system-prompt/assemble')[0](args[0], args[1], args[2])
+    return { hooks }
+  })()
+  const preStep = hooks.get('agent/pre-step')[0]
+  const ownEvent = (seq) => ({
+    seq, type: 'user/message',
+    data: { id: 'old-' + seq, role: 'user', source: { kind: 'plugin:dsh-anima-rag', form: 'anima:memory' }, content: [{ type: 'text', text: '旧记忆'.repeat(50) }] },
+  })
+  const storyEvent = (seq) => ({
+    seq, type: 'user/message',
+    data: { id: 'u' + seq, role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: '剧情正文' }] },
+  })
+  const events = [storyEvent(10), ownEvent(11), storyEvent(12), ownEvent(13), ownEvent(14), storyEvent(15)]
+  const captures = []
+  const surface = { nodes: [10, 11, 12, 13, 14, 15] }
+  const session = {
+    id: 'session-readfail', surface,
+    snapshotEvents: () => events,
+    append(type, message, intent) {
+      const seq = 100 + captures.length + 1
+      captures.push({ seq, message, intent })
+      surface.nodes.push(seq)
+      return { seq }
+    },
+  }
+  const base = () => ({ kind: 'enter', messages: [] })
+  await preStep({ agent: { id: 'session-readfail', session } }, () => Promise.resolve(base()))
+  // 首楼：2 条旧的被占位换下（⛔ 不碰剧情 10/12/15），交付本身 replace 最新那条 14（认领）
+  assert.equal(captures.length, 3, '首楼 = 2 条占位 + 1 条交付：' + JSON.stringify(captures.map((c) => c.intent)))
+  assert.deepEqual(captures[0].intent, { surfaceOp: { op: 'replace', startSeq: 11, endSeq: 11 }, sourceEventSeqs: [11] }, '第一条旧的没被换下')
+  assert.deepEqual(captures[1].intent, { surfaceOp: { op: 'replace', startSeq: 13, endSeq: 13 }, sourceEventSeqs: [13] }, '第二条旧的没被换下')
+  assert.equal(captures[0].message.source.form, 'tail-residue-cleanup', '占位消息的 form 不对')
+  assert.deepEqual(captures[2].intent, { surfaceOp: { op: 'replace', startSeq: 14, endSeq: 14 }, sourceEventSeqs: [14] }, '交付没认领最新那条（= 又叠加了一份）')
+  // 第二楼：自记 seq 接管，正常 replace 自己上一楼的交付
+  await preStep({ agent: { id: 'session-readfail', session } }, () => Promise.resolve(base()))
+  assert.equal(captures.length, 4, '第二楼只该有一条交付')
+  assert.deepEqual(captures[3].intent, { surfaceOp: { op: 'replace', startSeq: captures[2].seq, endSeq: captures[2].seq }, sourceEventSeqs: [captures[2].seq] })
 })
 
 // ─────────────────────── ② 引擎的嵌入口径（真打端点） ───────────────────────
@@ -381,6 +495,15 @@ await check('③ f. 引擎的失败分类：底层有自己的码，外层那圈
     '引擎没读 attempts / deadlineMs（那就没有"次数与预算"这回事）')
   assert.ok(/dimensionDiagnostics/.test(ENGINE_SRC) && /_diag/.test(ENGINE_SRC),
     '引擎没有维度核对那一路（NaN 分数会静默）')
+})
+
+await check('③ g. ★反证（叠加修复 source pin）：尾部交付必须走 session.append + planTailSurfaceOp', () => {
+  // 只要有人把交付退回"往 decision.messages 追加"当主路（= 每轮叠加的根因），下面任一断言必红。
+  assert.ok(/session\.append\('user\/message', message, planTailSurfaceOp\(/.test(LIVE),
+    'lib/index.js 里没有 session.append + planTailSurfaceOp 的调用')
+  assert.ok(/const tailSeqBySession = new Map\(\)/.test(LIVE), '上一轮 seq 的自记容器没了')
+  assert.ok(/surfaceOp: \{ op: 'replace', startSeq: previousSeq, endSeq: previousSeq \}/.test(LIVE),
+    'planTailSurfaceOp 的 replace 那支被退化掉了（replaceable 恒 false ⇒ 每轮叠加）')
 })
 
 // ─────────────────────── 收尾 ───────────────────────
